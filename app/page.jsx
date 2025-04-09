@@ -16,6 +16,7 @@ export default function Home() {
     { name: 'Bank Nifty', value: '-', change: '-' },
     { name: 'Sensex', value: '-', change: '-' },
   ]);
+  const [analysis, setAnalysis] = useState(null);
 
   const dropdownRef = useRef(null);
   const filteredStocks = stockOptions.filter(stock =>
@@ -30,19 +31,10 @@ export default function Home() {
 
   const handleKeyDown = (e) => {
     if (!showDropdown) return;
-
     if (e.key === 'ArrowDown') {
-      setHighlightedIndex((prev) => {
-        const nextIndex = Math.min(prev + 1, filteredStocks.length - 1);
-        scrollToItem(nextIndex);
-        return nextIndex;
-      });
+      setHighlightedIndex(prev => Math.min(prev + 1, filteredStocks.length - 1));
     } else if (e.key === 'ArrowUp') {
-      setHighlightedIndex((prev) => {
-        const nextIndex = Math.max(prev - 1, 0);
-        scrollToItem(nextIndex);
-        return nextIndex;
-      });
+      setHighlightedIndex(prev => Math.max(prev - 1, 0));
     } else if (e.key === 'Enter') {
       if (highlightedIndex >= 0 && filteredStocks[highlightedIndex]) {
         addStock(filteredStocks[highlightedIndex]);
@@ -52,18 +44,11 @@ export default function Home() {
     }
   };
 
-  const scrollToItem = (index) => {
-    if (dropdownRef.current) {
-      const listItem = dropdownRef.current.children[index];
-      if (listItem) listItem.scrollIntoView({ block: 'nearest' });
-    }
-  };
-
   const fetchPriceFromSheet = async (ticker) => {
     try {
       const res = await fetch(GOOGLE_SHEET_CSV_URL);
       const text = await res.text();
-      const rows = text.split('\n').slice(1); // skip header
+      const rows = text.split('\n').slice(1);
       for (const row of rows) {
         const [_, sheetTicker, sheetPrice] = row.split(',');
         if (sheetTicker?.trim() === ticker) {
@@ -74,6 +59,13 @@ export default function Home() {
       console.error('Error fetching from Google Sheets:', err);
     }
     return 'N/A';
+  };
+
+  const scrollToItem = (index) => {
+    if (dropdownRef.current) {
+      const listItem = dropdownRef.current.children[index];
+      if (listItem) listItem.scrollIntoView({ block: 'nearest' });
+    }
   };
 
   const addStock = async (stock) => {
@@ -98,6 +90,26 @@ export default function Home() {
     setMarketIndexes(indexSymbols);
   };
 
+  const analyzePortfolio = () => {
+    const analysisData = selectedStocks.map(stock => {
+      const quantity = parseFloat(stock.quantity || 0);
+      const price = parseFloat(stock.price || 0);
+      const current = parseFloat(stock.currentPrice || 0);
+      const invested = quantity * price;
+      const currentValue = quantity * current;
+      const pnl = currentValue - invested;
+      const pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
+      return {
+        name: stock.value,
+        invested: invested.toFixed(2),
+        currentValue: currentValue.toFixed(2),
+        pnl: pnl.toFixed(2),
+        pnlPct: pnlPct.toFixed(2)
+      };
+    });
+    setAnalysis(analysisData);
+  };
+
   useEffect(() => {
     fetchIndexes();
   }, []);
@@ -105,7 +117,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white p-4">
       <div className="max-w-7xl mx-auto grid grid-cols-[1fr_2fr_1.5fr] gap-6">
-        {/* MARKET INDEX COLUMN */}
         <div className="space-y-4">
           {marketIndexes.map((index) => (
             <div
@@ -123,10 +134,8 @@ export default function Home() {
           ))}
         </div>
 
-        {/* STOCK INPUT PANEL */}
         <div>
           <h1 className="text-3xl font-bold mb-4">📈 Add Stocks</h1>
-
           <input
             type="text"
             placeholder="Start typing stock name..."
@@ -135,7 +144,6 @@ export default function Home() {
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
           />
-
           <AnimatePresence>
             {showDropdown && (
               <motion.ul
@@ -170,11 +178,8 @@ export default function Home() {
           </AnimatePresence>
         </div>
 
-        {/* PORTFOLIO PANEL */}
         <div>
           <h2 className="text-3xl font-bold mb-2">📋 Portfolio</h2>
-
-          {/* Portfolio Header */}
           <div className="text-xs text-gray-400 grid grid-cols-4 gap-2 px-2 mb-2">
             <span>Name</span>
             <span>Qty</span>
@@ -185,7 +190,7 @@ export default function Home() {
           {selectedStocks.length === 0 ? (
             <p className="text-gray-400">No stocks added yet.</p>
           ) : (
-            <div className="space-y-3 overflow-y-auto max-h-[75vh] pr-2">
+            <div className="space-y-3 overflow-y-auto max-h-[60vh] pr-2">
               {selectedStocks.map((stock, index) => (
                 <div
                   key={stock.value}
@@ -206,9 +211,7 @@ export default function Home() {
                       value={stock.quantity}
                       onChange={(e) =>
                         setSelectedStocks((prev) =>
-                          prev.map((s, i) =>
-                            i === index ? { ...s, quantity: e.target.value } : s
-                          )
+                          prev.map((s, i) => i === index ? { ...s, quantity: e.target.value } : s)
                         )
                       }
                       className="w-full p-1 rounded bg-gray-700 text-white"
@@ -219,9 +222,7 @@ export default function Home() {
                       value={stock.price}
                       onChange={(e) =>
                         setSelectedStocks((prev) =>
-                          prev.map((s, i) =>
-                            i === index ? { ...s, price: e.target.value } : s
-                          )
+                          prev.map((s, i) => i === index ? { ...s, price: e.target.value } : s)
                         )
                       }
                       className="w-full p-1 rounded bg-gray-700 text-white"
@@ -235,6 +236,34 @@ export default function Home() {
                   >
                     ×
                   </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-4">
+            <button
+              className="w-full py-2 text-center rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+              onClick={analyzePortfolio}
+            >
+              🔍 Analyze Portfolio
+            </button>
+          </div>
+
+          {analysis && (
+            <div className="mt-6 text-sm space-y-2 bg-gray-900 p-4 rounded">
+              <h3 className="font-semibold text-lg mb-2">Analysis Summary</h3>
+              {analysis.map((s, i) => (
+                <div key={i} className="grid grid-cols-5 gap-2">
+                  <span>{s.name}</span>
+                  <span>Invested ₹{s.invested}</span>
+                  <span>Current ₹{s.currentValue}</span>
+                  <span className={parseFloat(s.pnl) < 0 ? 'text-red-400' : 'text-green-400'}>
+                    P&L ₹{s.pnl}
+                  </span>
+                  <span className={parseFloat(s.pnlPct) < 0 ? 'text-red-400' : 'text-green-400'}>
+                    {s.pnlPct}%
+                  </span>
                 </div>
               ))}
             </div>

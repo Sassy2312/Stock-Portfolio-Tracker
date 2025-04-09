@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { stockOptions } from './stockList';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,6 +14,8 @@ export default function Home() {
     { name: 'Bank Nifty', value: '-', change: '-' },
     { name: 'Sensex', value: '-', change: '-' },
   ]);
+
+  const dropdownRef = useRef(null);
 
   const filteredStocks = stockOptions.filter(stock =>
     stock.label.toLowerCase().includes(search.toLowerCase())
@@ -29,15 +31,30 @@ export default function Home() {
     if (!showDropdown) return;
 
     if (e.key === 'ArrowDown') {
-      setHighlightedIndex((prev) => Math.min(prev + 1, filteredStocks.length - 1));
+      setHighlightedIndex((prev) => {
+        const nextIndex = Math.min(prev + 1, filteredStocks.length - 1);
+        scrollToItem(nextIndex);
+        return nextIndex;
+      });
     } else if (e.key === 'ArrowUp') {
-      setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+      setHighlightedIndex((prev) => {
+        const nextIndex = Math.max(prev - 1, 0);
+        scrollToItem(nextIndex);
+        return nextIndex;
+      });
     } else if (e.key === 'Enter') {
       if (highlightedIndex >= 0 && filteredStocks[highlightedIndex]) {
         addStock(filteredStocks[highlightedIndex]);
       } else if (filteredStocks.length === 1) {
         addStock(filteredStocks[0]);
       }
+    }
+  };
+
+  const scrollToItem = (index) => {
+    if (dropdownRef.current) {
+      const listItem = dropdownRef.current.children[index];
+      if (listItem) listItem.scrollIntoView({ block: 'nearest' });
     }
   };
 
@@ -57,7 +74,6 @@ export default function Home() {
   useEffect(() => {
     const fetchIndexes = async () => {
       try {
-        // This is mock data, replace with live API integration if needed
         const randomize = (base) => {
           const val = base + (Math.random() - 0.5) * 100;
           const percent = ((Math.random() - 0.5) * 2).toFixed(2);
@@ -101,6 +117,7 @@ export default function Home() {
           <AnimatePresence>
             {showDropdown && (
               <motion.ul
+                ref={dropdownRef}
                 className="bg-gray-900 border border-gray-700 mt-2 rounded max-h-64 overflow-y-auto"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -140,7 +157,11 @@ export default function Home() {
                 <span>{index.name}</span>
                 <span>
                   {index.value}{' '}
-                  <span className="text-green-400">({index.change})</span>
+                  <span className={
+                    index.change.startsWith('-') ? 'text-red-400' : 'text-green-400'
+                  }>
+                    ({index.change})
+                  </span>
                 </span>
               </div>
             ))}

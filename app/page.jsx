@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import stockList from './stockList';
+import { stockOptions } from "./stockList";
+
 
 export default function Home() {
   const [search, setSearch] = useState('');

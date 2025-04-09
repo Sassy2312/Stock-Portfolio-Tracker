@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { stockOptions } from './stockList';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyWF99ycQ93t9y7ErTf0KJqocI-7n9mOW6yT1uB7CLtIhDeUM1zqL2cPVPKfMCUcAzz/exec';
+
 export default function Home() {
   const [search, setSearch] = useState('');
   const [selectedStocks, setSelectedStocks] = useState([]);
@@ -19,21 +21,17 @@ export default function Home() {
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    fetchPricesFromServer();
+    fetchPricesFromAppsScript();
     fetchIndexes();
   }, []);
 
-  const fetchPricesFromServer = async () => {
+  const fetchPricesFromAppsScript = async () => {
     try {
-      const res = await fetch('/api/prices');
+      const res = await fetch(APPS_SCRIPT_URL);
       const json = await res.json();
-      if (json.success) {
-        setPriceMap(json.data);
-      } else {
-        console.error('Error from server:', json.error);
-      }
+      setPriceMap(json);
     } catch (err) {
-      console.error('Fetch error:', err);
+      console.error('Apps Script fetch error:', err);
     }
   };
 

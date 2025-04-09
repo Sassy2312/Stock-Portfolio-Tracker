@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { stockOptions } from './stockList';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const API_KEY = '7ed5bc44f1b04fd2bf2864cd9b46ee65';
+
 export default function Home() {
   const [search, setSearch] = useState('');
   const [selectedStocks, setSelectedStocks] = useState([]);
@@ -58,9 +60,9 @@ export default function Home() {
     }
   };
 
-  const addStock = (stock) => {
+  const addStock = async (stock) => {
     if (!selectedStocks.find(s => s.value === stock.value)) {
-      setSelectedStocks([...selectedStocks, { ...stock, quantity: '', price: '', currentPrice: '-' }]);
+      setSelectedStocks(prev => [...prev, { ...stock, quantity: '', price: '', currentPrice: '-' }]);
     }
     setSearch('');
     setShowDropdown(false);
@@ -71,28 +73,49 @@ export default function Home() {
     setSelectedStocks(selectedStocks.filter(stock => stock.value !== value));
   };
 
+  const fetchAllPrices = async () => {
+    if (selectedStocks.length === 0) return;
+    const symbols = selectedStocks.map(s => `${s.value}.NSE`).join(',');
+    try {
+      const response = await fetch(`https://api.twelvedata.com/price?symbol=${symbols}&apikey=${API_KEY}`);
+      const data = await response.json();
+      const updated = selectedStocks.map(stock => ({
+        ...stock,
+        currentPrice: data[`${stock.value}.NSE`]?.price || 'N/A'
+      }));
+      setSelectedStocks(updated);
+    } catch (error) {
+      console.error('Batch price fetch error:', error);
+    }
+  };
+
+  const fetchIndexes = async () => {
+    try {
+      const randomize = (base) => {
+        const val = base + (Math.random() - 0.5) * 100;
+        const percent = ((Math.random() - 0.5) * 2).toFixed(2);
+        return [val.toFixed(2), percent];
+      };
+      const [nifty, niftyChange] = randomize(22500);
+      const [bankNifty, bankChange] = randomize(48200);
+      const [sensex, sensexChange] = randomize(75100);
+
+      setMarketIndexes([
+        { name: 'Nifty', value: nifty, change: `${niftyChange}%` },
+        { name: 'Bank Nifty', value: bankNifty, change: `${bankChange}%` },
+        { name: 'Sensex', value: sensex, change: `${sensexChange}%` },
+      ]);
+    } catch (error) {
+      console.error('Error fetching indexes', error);
+    }
+  };
+
+  const fetchEverything = async () => {
+    await fetchAllPrices();
+    await fetchIndexes();
+  };
+
   useEffect(() => {
-    const fetchIndexes = async () => {
-      try {
-        const randomize = (base) => {
-          const val = base + (Math.random() - 0.5) * 100;
-          const percent = ((Math.random() - 0.5) * 2).toFixed(2);
-          return [val.toFixed(2), percent];
-        };
-        const [nifty, niftyChange] = randomize(22500);
-        const [bankNifty, bankChange] = randomize(48200);
-        const [sensex, sensexChange] = randomize(75100);
-
-        setMarketIndexes([
-          { name: 'Nifty', value: nifty, change: `${niftyChange}%` },
-          { name: 'Bank Nifty', value: bankNifty, change: `${bankChange}%` },
-          { name: 'Sensex', value: sensex, change: `${sensexChange}%` },
-        ]);
-      } catch (error) {
-        console.error('Error fetching indexes', error);
-      }
-    };
-
     fetchIndexes();
     const interval = setInterval(fetchIndexes, 5000);
     return () => clearInterval(interval);
@@ -236,12 +259,20 @@ export default function Home() {
             </div>
           )}
 
-          <button
-            className="mt-4 w-full py-2 text-center rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-            onClick={() => alert('Portfolio analysis coming soon...')}
-          >
-            🔍 Analyze
-          </button>
+          <div className="flex gap-2 mt-4">
+            <button
+              className="w-1/2 py-2 text-center rounded bg-yellow-600 hover:bg-yellow-700 text-white font-semibold"
+              onClick={fetchEverything}
+            >
+              🔄 Fetch Current Prices
+            </button>
+            <button
+              className="w-1/2 py-2 text-center rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+              onClick={() => alert('Portfolio analysis coming soon...')}
+            >
+              🔍 Analyze
+            </button>
+          </div>
         </div>
       </div>
     </main>

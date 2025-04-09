@@ -3,7 +3,18 @@
 @tailwind utilities;
 
 body {
-  background-color: #000;
-  color: #fff;
+  background-color: black;
+  color: white;
   font-family: sans-serif;
+  padding: 1rem;
+}
+
+/* Optional: Style headings and links */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: bold;
+}
+
+a {
+  color: #38bdf8; /* Tailwind sky-400 */
+  text-decoration: underline;
 }

@@ -60,7 +60,7 @@ export default function Home() {
 
   const addStock = (stock) => {
     if (!selectedStocks.find(s => s.value === stock.value)) {
-      setSelectedStocks([...selectedStocks, { ...stock, quantity: '', price: '' }]);
+      setSelectedStocks([...selectedStocks, { ...stock, quantity: '', price: '', currentPrice: '-' }]);
     }
     setSearch('');
     setShowDropdown(false);
@@ -100,8 +100,26 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-black text-white p-4">
-      <div className="max-w-7xl mx-auto grid grid-cols-[2fr_1.2fr] gap-6">
-        {/* LEFT PANEL */}
+      <div className="max-w-7xl mx-auto grid grid-cols-[1fr_2fr_1.5fr] gap-6">
+        {/* MARKET INDEX COLUMN */}
+        <div className="space-y-4">
+          {marketIndexes.map((index) => (
+            <div
+              key={index.name}
+              className="bg-gray-800 w-28 h-28 flex flex-col items-center justify-center rounded shadow-md"
+            >
+              <span className="text-sm font-semibold">{index.name}</span>
+              <span className="text-xl">{index.value}</span>
+              <span
+                className={`text-sm ${index.change.startsWith('-') ? 'text-red-400' : 'text-green-400'}`}
+              >
+                {index.change}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* STOCK INPUT PANEL */}
         <div>
           <h1 className="text-3xl font-bold mb-4">📈 Add Stocks</h1>
 
@@ -146,54 +164,35 @@ export default function Home() {
               </motion.ul>
             )}
           </AnimatePresence>
-
-          {/* MARKET INDEXES */}
-          <div className="mt-6 space-y-3">
-            {marketIndexes.map((index) => (
-              <div
-                key={index.name}
-                className="bg-gray-800 px-4 py-2 rounded flex justify-between items-center text-sm"
-              >
-                <span>{index.name}</span>
-                <span>
-                  {index.value}{' '}
-                  <span className={
-                    index.change.startsWith('-') ? 'text-red-400' : 'text-green-400'
-                  }>
-                    ({index.change})
-                  </span>
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* RIGHT PANEL */}
+        {/* PORTFOLIO PANEL */}
         <div>
-          <h2 className="text-3xl font-bold mb-4">📋 Portfolio</h2>
+          <h2 className="text-3xl font-bold mb-2">📋 Portfolio</h2>
 
           {/* Portfolio Header */}
-          <div className="text-sm text-gray-400 grid grid-cols-3 gap-2 px-2 mb-2">
+          <div className="text-xs text-gray-400 grid grid-cols-4 gap-2 px-2 mb-2">
             <span>Name</span>
             <span>Qty</span>
-            <span>Purchase Price</span>
+            <span>Buy ₹</span>
+            <span>Current</span>
           </div>
 
           {selectedStocks.length === 0 ? (
             <p className="text-gray-400">No stocks added yet.</p>
           ) : (
-            <div className="space-y-3 overflow-y-auto max-h-[90vh] pr-2">
+            <div className="space-y-3 overflow-y-auto max-h-[75vh] pr-2">
               {selectedStocks.map((stock, index) => (
                 <div
                   key={stock.value}
-                  className="bg-gray-800 p-2 rounded flex justify-between items-center relative group text-sm"
+                  className="bg-gray-800 p-2 rounded flex justify-between items-center relative group text-xs"
                 >
-                  <div className="grid grid-cols-3 gap-2 items-center w-full">
+                  <div className="grid grid-cols-4 gap-2 items-center w-full">
                     <a
                       href={`https://www.screener.in/company/${stock.value}/consolidated/`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-400 hover:underline"
+                      className="text-blue-400 hover:underline truncate"
                     >
                       {stock.label.split('(')[0].trim()}
                     </a>
@@ -223,8 +222,8 @@ export default function Home() {
                       }
                       className="w-full p-1 rounded bg-gray-700 text-white"
                     />
+                    <span className="text-green-400 text-center">{stock.currentPrice}</span>
                   </div>
-                  {/* REMOVE BUTTON */}
                   <button
                     onClick={() => removeStock(stock.value)}
                     className="absolute top-1 right-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
@@ -236,6 +235,13 @@ export default function Home() {
               ))}
             </div>
           )}
+
+          <button
+            className="mt-4 w-full py-2 text-center rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+            onClick={() => alert('Portfolio analysis coming soon...')}
+          >
+            🔍 Analyze
+          </button>
         </div>
       </div>
     </main>

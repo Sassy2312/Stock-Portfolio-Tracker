@@ -1,79 +1,129 @@
 'use client'
-import { useState } from 'react'
-
-const nseStocks = ["RELIANCE", "TCS", "INFY", "HDFC", "ICICIBANK", "SBIN", "WIPRO"]
+import React, { useState } from 'react'
 
 export default function Home() {
   const [portfolio, setPortfolio] = useState([])
-  const [selectedStock, setSelectedStock] = useState("")
+  const [selectedStock, setSelectedStock] = useState('')
 
   const addStock = () => {
-    if (!selectedStock || portfolio.some(s => s.name === selectedStock)) return
-    setPortfolio([...portfolio, { name: selectedStock, quantity: "", price: "" }])
-    setSelectedStock("")
+    if (selectedStock && !portfolio.find(stock => stock.name === selectedStock)) {
+      setPortfolio([...portfolio, { name: selectedStock, quantity: '', price: '' }])
+      setSelectedStock('')
+    }
   }
 
-  const updatePortfolio = (index, field, value) => {
-    const updated = [...portfolio]
-    updated[index][field] = value
-    setPortfolio(updated)
+  const updateField = (index, field, value) => {
+    const updatedPortfolio = [...portfolio]
+    updatedPortfolio[index][field] = value
+    setPortfolio(updatedPortfolio)
   }
 
   return (
-    <main className="min-h-screen bg-black text-white p-10">
-      <h1 className="text-3xl font-bold mb-5">📈 Stock Portfolio Tracker</h1>
-
-      <div className="flex items-center gap-4 mb-6">
-        <select
+    <div style={styles.container}>
+      {/* Left Panel */}
+      <div style={styles.leftPanel}>
+        <h1 style={styles.heading}>Add Stock</h1>
+        <input
+          type="text"
+          placeholder="Enter NSE stock symbol"
           value={selectedStock}
-          onChange={(e) => setSelectedStock(e.target.value)}
-          className="text-black p-2 rounded"
-        >
-          <option value="">-- Select Stock --</option>
-          {nseStocks.map((stock) => (
-            <option key={stock} value={stock}>
-              {stock}
-            </option>
-          ))}
-        </select>
-        <button onClick={addStock} className="bg-green-600 px-4 py-2 rounded">
-          Add to Portfolio
-        </button>
+          onChange={(e) => setSelectedStock(e.target.value.toUpperCase())}
+          style={styles.input}
+        />
+        <button onClick={addStock} style={styles.button}>Add to Portfolio</button>
       </div>
 
-      <h2 className="text-2xl mb-4">🗂️ Portfolio</h2>
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="bg-gray-800">
-            <th className="p-2 border border-gray-700">Name</th>
-            <th className="p-2 border border-gray-700">Quantity</th>
-            <th className="p-2 border border-gray-700">Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          {portfolio.map((stock, index) => (
-            <tr key={index} className="bg-gray-900">
-              <td className="p-2 border border-gray-700">{stock.name}</td>
-              <td className="p-2 border border-gray-700">
-                <input
-                  type="number"
-                  value={stock.quantity}
-                  onChange={(e) => updatePortfolio(index, "quantity", e.target.value)}
-                  className="text-black p-1 w-full"
-                />
-              </td>
-              <td className="p-2 border border-gray-700">
-                <input
-                  type="number"
-                  value={stock.price}
-                  onChange={(e) => updatePortfolio(index, "price", e.target.value)}
-                  className="text-black p-1 w-full"
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </main>
+      {/* Right Panel */}
+      <div style={styles.rightPanel}>
+        <h2 style={styles.heading}>Your Portfolio</h2>
+        {portfolio.length === 0 && <p style={{ color: '#bbb' }}>No stocks added yet.</p>}
+        {portfolio.map((stock, index) => (
+          <div key={index} style={styles.stockRow}>
+            <span style={styles.stockName}>{stock.name}</span>
+            <input
+              type="number"
+              placeholder="Qty"
+              value={stock.quantity}
+              onChange={(e) => updateField(index, 'quantity', e.target.value)}
+              style={styles.smallInput}
+            />
+            <input
+              type="number"
+              placeholder="Price"
+              value={stock.price}
+              onChange={(e) => updateField(index, 'price', e.target.value)}
+              style={styles.smallInput}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
+
+const styles = {
+  container: {
+    display: 'flex',
+    height: '100vh',
+    backgroundColor: '#0d0d0d',
+    color: '#fff',
+    fontFamily: 'Arial, sans-serif',
+  },
+  leftPanel: {
+    width: '40%',
+    padding: '40px',
+    borderRight: '2px solid #222',
+    boxSizing: 'border-box',
+  },
+  rightPanel: {
+    width: '60%',
+    padding: '40px',
+    boxSizing: 'border-box',
+  },
+  heading: {
+    fontSize: '28px',
+    marginBottom: '20px',
+    color: '#00ffcc',
+  },
+  input: {
+    width: '100%',
+    padding: '12px',
+    fontSize: '16px',
+    marginBottom: '10px',
+    borderRadius: '6px',
+    border: '1px solid #444',
+    backgroundColor: '#1a1a1a',
+    color: '#fff',
+  },
+  button: {
+    padding: '12px 20px',
+    backgroundColor: '#00cc99',
+    border: 'none',
+    borderRadius: '6px',
+    color: '#000',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+  },
+  stockRow: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'center',
+    marginBottom: '16px',
+    backgroundColor: '#111',
+    padding: '12px',
+    borderRadius: '8px',
+  },
+  stockName: {
+    flex: 1,
+    fontWeight: 'bold',
+  },
+  smallInput: {
+    width: '80px',
+    padding: '8px',
+    borderRadius: '6px',
+    border: '1px solid #444',
+    backgroundColor: '#1a1a1a',
+    color: '#fff',
+  },
+}
+

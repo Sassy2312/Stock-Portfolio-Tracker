@@ -1,138 +1,72 @@
-"use client";
+'use client'
 
-import { useState } from "react";
-import stockList from "./stockList"; // Make sure this file exists
-import { motion } from "framer-motion";
+import { useState } from 'react'
+import stockList from './stockList'
+import { motion } from 'framer-motion'
 
 export default function Home() {
-  const [query, setQuery] = useState("");
-  const [filteredStocks, setFilteredStocks] = useState([]);
-  const [selectedStock, setSelectedStock] = useState(null);
-  const [portfolio, setPortfolio] = useState([]);
-  const [quantity, setQuantity] = useState("");
-  const [price, setPrice] = useState("");
+  const [selectedStock, setSelectedStock] = useState('')
+  const [search, setSearch] = useState('')
 
-  const handleSearch = (value) => {
-    setQuery(value);
-    if (value.length > 0) {
-      const results = stockList.filter((stock) =>
-        stock.name.toLowerCase().startsWith(value.toLowerCase())
-      );
-      setFilteredStocks(results.slice(0, 10)); // limit to 10
-    } else {
-      setFilteredStocks([]);
-    }
-  };
-
-  const handleAddToPortfolio = () => {
-    if (!selectedStock || !quantity || !price) return;
-    const newEntry = {
-      ...selectedStock,
-      quantity: parseInt(quantity),
-      price: parseFloat(price),
-    };
-    setPortfolio([...portfolio, newEntry]);
-    setSelectedStock(null);
-    setQuantity("");
-    setPrice("");
-    setQuery("");
-    setFilteredStocks([]);
-  };
+  const filteredStocks = stockList.filter(
+    stock =>
+      stock.name.toLowerCase().includes(search.toLowerCase()) ||
+      stock.symbol.toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white p-4">
-      <h1 className="text-3xl font-bold mb-6 text-center">📈 NSE Portfolio Tracker</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left Panel */}
-        <div className="bg-gray-950 p-6 rounded-2xl shadow-lg border border-gray-800">
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="Search stock name..."
-              value={query}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full p-3 rounded-md text-black focus:outline-none"
-            />
-            {filteredStocks.length > 0 && (
-              <div className="mt-2 bg-white text-black rounded-md shadow-lg max-h-60 overflow-auto">
-                {filteredStocks.map((stock) => (
-                  <div
-                    key={stock.ticker}
-                    onClick={() => {
-                      setSelectedStock(stock);
-                      setQuery(stock.name);
-                      setFilteredStocks([]);
-                    }}
-                    className="px-4 py-2 hover:bg-gray-200 cursor-pointer"
-                  >
-                    {stock.name} ({stock.ticker})
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+    <main className="flex min-h-screen flex-col items-center justify-start bg-black text-white p-6">
+      <motion.h1
+        className="text-4xl font-bold mb-8 mt-12"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        Stock Portfolio Tracker
+      </motion.h1>
 
-          {selectedStock && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-gray-800 p-4 rounded-md mb-4"
-            >
-              <p className="text-lg font-semibold">{selectedStock.name}</p>
-              <p className="text-sm text-gray-400">{selectedStock.ticker}</p>
+      <motion.div
+        className="w-full max-w-md"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+      >
+        <input
+          type="text"
+          placeholder="Search stock by name or symbol..."
+          className="w-full p-3 mb-4 rounded-lg bg-gray-800 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
 
-              <div className="mt-4">
-                <input
-                  type="number"
-                  placeholder="Quantity"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  className="w-full p-2 rounded mb-2 text-black"
-                />
-                <input
-                  type="number"
-                  placeholder="Buy Price"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="w-full p-2 rounded text-black"
-                />
-              </div>
-
-              <button
-                onClick={handleAddToPortfolio}
-                className="mt-3 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-md"
+        <div className="bg-gray-900 border border-gray-700 rounded-lg max-h-60 overflow-y-auto">
+          {filteredStocks.length > 0 ? (
+            filteredStocks.map((stock, index) => (
+              <div
+                key={index}
+                onClick={() => setSelectedStock(`${stock.name} (${stock.symbol})`)}
+                className="p-3 hover:bg-blue-700 cursor-pointer transition duration-200"
               >
-                ➕ Add to Portfolio
-              </button>
-            </motion.div>
+                {stock.name} ({stock.symbol})
+              </div>
+            ))
+          ) : (
+            <div className="p-3 text-gray-400">No matching stocks found.</div>
           )}
         </div>
 
-        {/* Right Panel */}
-        <div className="bg-gray-950 p-6 rounded-2xl shadow-lg border border-gray-800">
-          <h2 className="text-xl font-semibold mb-4">📊 Portfolio</h2>
-          {portfolio.length === 0 ? (
-            <p className="text-gray-400">No stocks added yet.</p>
-          ) : (
-            <ul className="space-y-4">
-              {portfolio.map((stock, index) => (
-                <li key={index} className="bg-gray-800 p-4 rounded-md">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold">{stock.name}</p>
-                      <p className="text-sm text-gray-400">{stock.ticker}</p>
-                    </div>
-                    <div className="text-right">
-                      <p>Qty: {stock.quantity}</p>
-                      <p>Price: ₹{stock.price}</p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+        {selectedStock && (
+          <motion.div
+            className="mt-6 p-4 bg-gray-800 rounded-lg border border-gray-700 text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <p className="text-lg font-medium">You selected:</p>
+            <p className="text-xl font-semibold text-blue-400">{selectedStock}</p>
+          </motion.div>
+        )}
+      </motion.div>
     </main>
-  );
+  )
 }

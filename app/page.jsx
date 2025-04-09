@@ -75,18 +75,28 @@ export default function Home() {
 
   const fetchAllPrices = async () => {
     if (selectedStocks.length === 0) return;
-    const symbols = selectedStocks.map(s => `${s.value}.NSE`).join(',');
-    try {
-      const response = await fetch(`https://api.twelvedata.com/price?symbol=${symbols}&apikey=${API_KEY}`);
-      const data = await response.json();
-      const updated = selectedStocks.map(stock => ({
-        ...stock,
-        currentPrice: data[`${stock.value}.NSE`]?.price || 'N/A'
-      }));
-      setSelectedStocks(updated);
-    } catch (error) {
-      console.error('Batch price fetch error:', error);
+
+    const updated = [];
+
+    for (let stock of selectedStocks) {
+      try {
+        const res = await fetch(`https://api.twelvedata.com/price?symbol=${stock.value}.NSE&apikey=${API_KEY}`);
+        const data = await res.json();
+        updated.push({
+          ...stock,
+          currentPrice: data?.price || 'N/A',
+        });
+      } catch (e) {
+        updated.push({
+          ...stock,
+          currentPrice: 'N/A',
+        });
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 800));
     }
+
+    setSelectedStocks(updated);
   };
 
   const fetchIndexes = async () => {

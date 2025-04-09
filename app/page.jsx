@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { stockOptions } from './stockList';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRgoHIl_PJoLDIk-7zwobM4Z2VVRRn6CDlVhTwN2cBzLkWcixEChWqGWfYrM_gNjruRXcSeWX7LMWmn/pub?gid=1839365475&single=true&output=csv';
-
 export default function Home() {
   const [search, setSearch] = useState('');
   const [selectedStocks, setSelectedStocks] = useState([]);
@@ -16,30 +14,36 @@ export default function Home() {
     { name: 'Bank Nifty', value: '-', change: '-' },
     { name: 'Sensex', value: '-', change: '-' },
   ]);
-  const [sheetData, setSheetData] = useState([]);
+  const [priceMap, setPriceMap] = useState({});
 
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    fetchSheetData();
+    fetchPricesFromServer();
     fetchIndexes();
   }, []);
 
-  const fetchSheetData = async () => {
+  const fetchPricesFromServer = async () => {
     try {
-      const res = await fetch(GOOGLE_SHEET_CSV_URL);
-      const text = await res.text();
-      const rows = text.split('\n').slice(1).map(row => row.split(','));
-      const cleanRows = rows.map(([_, ticker, price]) => [ticker.trim(), parseFloat(price)]);
-      setSheetData(cleanRows);
+      const res = await fetch('/api/prices');
+      const json = await res.json();
+      if (json.success) {
+        setPriceMap(json.data);
+      } else {
+        console.error('Error from server:', json.error);
+      }
     } catch (err) {
-      console.error('Error fetching sheet data:', err);
+      console.error('Fetch error:', err);
     }
   };
 
-  const fetchPriceFromSheet = (ticker) => {
-    const entry = sheetData.find(([sheetTicker]) => sheetTicker === ticker);
-    return entry ? entry[1] : 'N/A';
+  const fetchIndexes = async () => {
+    const indexSymbols = [
+      { name: 'Nifty', value: '22500.00', change: '+0.10%' },
+      { name: 'Bank Nifty', value: '48200.00', change: '+0.05%' },
+      { name: 'Sensex', value: '75100.00', change: '-0.15%' },
+    ];
+    setMarketIndexes(indexSymbols);
   };
 
   const filteredStocks = stockOptions.filter(stock =>
@@ -74,9 +78,9 @@ export default function Home() {
     }
   };
 
-  const addStock = async (stock) => {
+  const addStock = (stock) => {
     if (selectedStocks.find(s => s.value === stock.value)) return;
-    const price = fetchPriceFromSheet(stock.value);
+    const price = priceMap[stock.value] ?? 'N/A';
     setSelectedStocks(prev => [...prev, { ...stock, quantity: '', price: '', currentPrice: price }]);
     setSearch('');
     setShowDropdown(false);
@@ -85,15 +89,6 @@ export default function Home() {
 
   const removeStock = (value) => {
     setSelectedStocks(selectedStocks.filter(stock => stock.value !== value));
-  };
-
-  const fetchIndexes = async () => {
-    const indexSymbols = [
-      { name: 'Nifty', value: '22500.00', change: '+0.10%' },
-      { name: 'Bank Nifty', value: '48200.00', change: '+0.05%' },
-      { name: 'Sensex', value: '75100.00', change: '-0.15%' },
-    ];
-    setMarketIndexes(indexSymbols);
   };
 
   return (

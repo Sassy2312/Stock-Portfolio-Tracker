@@ -1,40 +1,52 @@
 'use client';
 
 import { useState } from 'react';
-import { stockList } from '../stockList';
+import { stockOptions } from './stockList';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function Page() {
-  const [input, setInput] = useState('');
+export default function Home() {
+  const [search, setSearch] = useState('');
   const [selectedStocks, setSelectedStocks] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+
+  const filteredStocks = stockOptions.filter(stock =>
+    stock.label.toLowerCase().includes(search.toLowerCase())
+  );
 
   const handleInputChange = (e) => {
-    const value = e.target.value;
-    setInput(value);
-    setShowDropdown(value.length > 0);
+    setSearch(e.target.value);
+    setShowDropdown(e.target.value.length > 0);
+    setHighlightedIndex(-1);
   };
 
   const handleKeyDown = (e) => {
-    const filtered = stockList.filter(
-      (stock) => stock.toLowerCase().includes(input.toLowerCase())
-    );
+    if (!showDropdown) return;
 
-    if (e.key === 'Enter' && filtered.length === 1) {
-      addStock(filtered[0]);
+    if (e.key === 'ArrowDown') {
+      setHighlightedIndex((prev) => Math.min(prev + 1, filteredStocks.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter') {
+      if (highlightedIndex >= 0 && filteredStocks[highlightedIndex]) {
+        addStock(filteredStocks[highlightedIndex]);
+      } else if (filteredStocks.length === 1) {
+        addStock(filteredStocks[0]);
+      }
     }
   };
 
   const addStock = (stock) => {
-    if (!selectedStocks.includes(stock)) {
-      setSelectedStocks([...selectedStocks, stock]);
+    if (!selectedStocks.find(s => s.value === stock.value)) {
+      setSelectedStocks([...selectedStocks, { ...stock, quantity: '', price: '' }]);
     }
-    setInput('');
+    setSearch('');
     setShowDropdown(false);
+    setHighlightedIndex(-1);
   };
 
-  const removeStock = (stock) => {
-    setSelectedStocks(selectedStocks.filter((s) => s !== stock));
+  const removeStock = (value) => {
+    setSelectedStocks(selectedStocks.filter(stock => stock.value !== value));
   };
 
   const marketIndexes = [
@@ -44,70 +56,139 @@ export default function Page() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4">
-      <h1 className="text-3xl font-bold mb-6 text-center">Stock Portfolio Tracker</h1>
+    <main className="min-h-screen bg-black text-white p-4">
+      <div className="max-w-4xl mx-auto grid grid-cols-2 gap-6">
+        {/* LEFT PANEL */}
+        <div>
+          <h1 className="text-3xl font-bold mb-4">📈 Add Stocks</h1>
 
-      <div className="max-w-xl mx-auto">
-        <input
-          type="text"
-          placeholder="Search and add stock..."
-          className="w-full px-4 py-2 text-black rounded mb-2"
-          value={input}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-        />
+          <input
+            type="text"
+            placeholder="Start typing stock name..."
+            className="w-full px-4 py-2 rounded bg-gray-800 text-white border border-gray-600 focus:outline-none"
+            value={search}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+          />
 
-        <AnimatePresence>
-          {showDropdown && (
-            <motion.ul
-              className="bg-white text-black rounded shadow-md overflow-hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              {stockList
-                .filter((stock) =>
-                  stock.toLowerCase().includes(input.toLowerCase())
-                )
-                .map((stock) => (
+          <AnimatePresence>
+            {showDropdown && (
+              <motion.ul
+                className="bg-gray-900 border border-gray-700 mt-2 rounded max-h-64 overflow-y-auto"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {filteredStocks.map((stock, index) => (
                   <li
-                    key={stock}
-                    className="px-4 py-2 hover:bg-gray-200 cursor-pointer"
+                    key={index}
+                    className={`px-4 py-2 cursor-pointer flex items-center gap-2 ${
+                      highlightedIndex === index ? 'bg-blue-700' : 'hover:bg-gray-700'
+                    }`}
                     onClick={() => addStock(stock)}
                   >
-                    {stock}
+                    <img
+                      src={`https://assets.smallcase.com/logos/${stock.value.toLowerCase()}.png`}
+                      alt="logo"
+                      className="w-5 h-5 rounded-full"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://via.placeholder.com/20x20?text=S';
+                      }}
+                    />
+                    {stock.label}
                   </li>
                 ))}
-            </motion.ul>
-          )}
-        </AnimatePresence>
+              </motion.ul>
+            )}
+          </AnimatePresence>
 
-        <div className="flex flex-wrap gap-2 mt-4">
-          {selectedStocks.map((stock) => (
-            <div
-              key={stock}
-              className="bg-blue-700 px-3 py-1 rounded-full flex items-center group relative"
-            >
-              {stock}
-              <button
-                onClick={() => removeStock(stock)}
-                className="ml-2 text-sm text-white opacity-0 group-hover:opacity-100 absolute top-[-8px] right-[-8px] bg-red-500 rounded-full w-5 h-5 flex items-center justify-center"
+          {/* MARKET INDEXES */}
+          <div className="mt-6 space-y-3">
+            {marketIndexes.map((index) => (
+              <div
+                key={index.name}
+                className="bg-gray-800 px-4 py-2 rounded flex justify-between items-center"
               >
-                ×
-              </button>
-            </div>
-          ))}
+                <span>{index.name}</span>
+                <span>
+                  {index.value}{' '}
+                  <span className="text-green-400">({index.change})</span>
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-8 space-y-2">
-          {marketIndexes.map(({ name, value, change }) => (
-            <div key={name} className="bg-gray-800 p-3 rounded-md flex justify-between items-center">
-              <span>{name}</span>
-              <span>{value} <span className="text-green-400">({change})</span></span>
+        {/* RIGHT PANEL */}
+        <div>
+          <h2 className="text-3xl font-bold mb-4">📋 Portfolio</h2>
+          {selectedStocks.length === 0 ? (
+            <p className="text-gray-400">No stocks added yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {selectedStocks.map((stock, index) => (
+                <div
+                  key={stock.value}
+                  className="bg-gray-800 p-4 rounded flex justify-between items-center relative group"
+                >
+                  <div>
+                    <p className="font-semibold flex items-center gap-2">
+                      <img
+                        src={`https://assets.smallcase.com/logos/${stock.value.toLowerCase()}.png`}
+                        alt="logo"
+                        className="w-5 h-5 rounded-full"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/20x20?text=S';
+                        }}
+                      />
+                      {stock.label}
+                    </p>
+                    <div className="flex gap-4 mt-2">
+                      <input
+                        type="number"
+                        placeholder="Qty"
+                        value={stock.quantity}
+                        onChange={(e) =>
+                          setSelectedStocks((prev) =>
+                            prev.map((s, i) =>
+                              i === index ? { ...s, quantity: e.target.value } : s
+                            )
+                          )
+                        }
+                        className="w-20 p-1 rounded bg-gray-700 text-white"
+                      />
+                      <input
+                        type="number"
+                        placeholder="₹ Price"
+                        value={stock.price}
+                        onChange={(e) =>
+                          setSelectedStocks((prev) =>
+                            prev.map((s, i) =>
+                              i === index ? { ...s, price: e.target.value } : s
+                            )
+                          )
+                        }
+                        className="w-24 p-1 rounded bg-gray-700 text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* REMOVE BUTTON */}
+                  <button
+                    onClick={() => removeStock(stock.value)}
+                    className="absolute top-2 right-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
+                    title="Remove"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </div>
-    </div>
+    </main>
   );
 }

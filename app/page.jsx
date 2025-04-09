@@ -1,100 +1,113 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { stockOptions } from './stockList'
-import { motion } from 'framer-motion'
+import { useState } from 'react';
+import { stockList } from '../stockList';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function Home() {
-  const [search, setSearch] = useState('')
-  const [portfolio, setPortfolio] = useState([])
+export default function Page() {
+  const [input, setInput] = useState('');
+  const [selectedStocks, setSelectedStocks] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
 
-  const filteredStocks = stockOptions.filter(stock =>
-    stock.label.toLowerCase().includes(search.toLowerCase())
-  )
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setInput(value);
+    setShowDropdown(value.length > 0);
+  };
 
-  const addToPortfolio = (stock) => {
-    if (!portfolio.find(item => item.value === stock.value)) {
-      setPortfolio([...portfolio, { ...stock, quantity: '', price: '' }])
+  const handleKeyDown = (e) => {
+    const filtered = stockList.filter(
+      (stock) => stock.toLowerCase().includes(input.toLowerCase())
+    );
+
+    if (e.key === 'Enter' && filtered.length === 1) {
+      addStock(filtered[0]);
     }
-    setSearch('')
-  }
+  };
 
-  const updateStock = (index, field, value) => {
-    const updated = [...portfolio]
-    updated[index][field] = value
-    setPortfolio(updated)
-  }
+  const addStock = (stock) => {
+    if (!selectedStocks.includes(stock)) {
+      setSelectedStocks([...selectedStocks, stock]);
+    }
+    setInput('');
+    setShowDropdown(false);
+  };
+
+  const removeStock = (stock) => {
+    setSelectedStocks(selectedStocks.filter((s) => s !== stock));
+  };
+
+  const marketIndexes = [
+    { name: 'Nifty', value: '22,500', change: '+0.45%' },
+    { name: 'Bank Nifty', value: '48,200', change: '+0.33%' },
+    { name: 'Sensex', value: '75,100', change: '+0.51%' },
+  ];
 
   return (
-    <main className="min-h-screen flex bg-black text-white">
-      {/* LEFT PANEL */}
-      <div className="w-1/2 p-10 border-r border-gray-700">
-        <h1 className="text-3xl font-bold mb-6">📈 Add Stocks</h1>
+    <div className="min-h-screen bg-gray-900 text-white p-4">
+      <h1 className="text-3xl font-bold mb-6 text-center">Stock Portfolio Tracker</h1>
+
+      <div className="max-w-xl mx-auto">
         <input
           type="text"
-          placeholder="Type to search stocks..."
-          className="w-full p-3 rounded bg-gray-800 border border-gray-600 mb-3 focus:outline-none"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search and add stock..."
+          className="w-full px-4 py-2 text-black rounded mb-2"
+          value={input}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
         />
-        <div className="bg-gray-800 rounded max-h-64 overflow-y-auto border border-gray-600">
-          {filteredStocks.map((stock, i) => (
-            <div
-              key={i}
-              onClick={() => addToPortfolio(stock)}
-              className="px-4 py-2 hover:bg-blue-700 cursor-pointer"
+
+        <AnimatePresence>
+          {showDropdown && (
+            <motion.ul
+              className="bg-white text-black rounded shadow-md overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
-              {stock.label}
+              {stockList
+                .filter((stock) =>
+                  stock.toLowerCase().includes(input.toLowerCase())
+                )
+                .map((stock) => (
+                  <li
+                    key={stock}
+                    className="px-4 py-2 hover:bg-gray-200 cursor-pointer"
+                    onClick={() => addStock(stock)}
+                  >
+                    {stock}
+                  </li>
+                ))}
+            </motion.ul>
+          )}
+        </AnimatePresence>
+
+        <div className="flex flex-wrap gap-2 mt-4">
+          {selectedStocks.map((stock) => (
+            <div
+              key={stock}
+              className="bg-blue-700 px-3 py-1 rounded-full flex items-center group relative"
+            >
+              {stock}
+              <button
+                onClick={() => removeStock(stock)}
+                className="ml-2 text-sm text-white opacity-0 group-hover:opacity-100 absolute top-[-8px] right-[-8px] bg-red-500 rounded-full w-5 h-5 flex items-center justify-center"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 space-y-2">
+          {marketIndexes.map(({ name, value, change }) => (
+            <div key={name} className="bg-gray-800 p-3 rounded-md flex justify-between items-center">
+              <span>{name}</span>
+              <span>{value} <span className="text-green-400">({change})</span></span>
             </div>
           ))}
         </div>
       </div>
-
-      {/* RIGHT PANEL */}
-      <div className="w-1/2 p-10">
-        <h2 className="text-3xl font-bold mb-6">📋 Portfolio</h2>
-        {portfolio.length === 0 && (
-          <p className="text-gray-400">No stocks added yet.</p>
-        )}
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-gray-600">
-              <th className="pb-2">Stock</th>
-              <th className="pb-2">Quantity</th>
-              <th className="pb-2">Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {portfolio.map((stock, index) => (
-              <tr key={index} className="border-b border-gray-800">
-                <td className="py-2">{stock.label}</td>
-                <td className="py-2">
-                  <input
-                    type="number"
-                    placeholder="Qty"
-                    className="w-20 p-1 rounded bg-gray-700 text-white"
-                    value={stock.quantity}
-                    onChange={(e) =>
-                      updateStock(index, 'quantity', e.target.value)
-                    }
-                  />
-                </td>
-                <td className="py-2">
-                  <input
-                    type="number"
-                    placeholder="₹ Price"
-                    className="w-24 p-1 rounded bg-gray-700 text-white"
-                    value={stock.price}
-                    onChange={(e) =>
-                      updateStock(index, 'price', e.target.value)
-                    }
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </main>
-  )
+    </div>
+  );
 }

@@ -17,6 +17,7 @@ export default function Home() {
     { name: 'Sensex', value: '-', change: '-' },
   ]);
   const [priceMap, setPriceMap] = useState({});
+  const [analysis, setAnalysis] = useState(null);
 
   const dropdownRef = useRef(null);
 
@@ -89,6 +90,27 @@ export default function Home() {
     setSelectedStocks(selectedStocks.filter(stock => stock.value !== value));
   };
 
+  const analyzePortfolio = () => {
+    let totalInvested = 0;
+    let currentValue = 0;
+
+    selectedStocks.forEach(stock => {
+      const qty = parseFloat(stock.quantity);
+      const buyPrice = parseFloat(stock.price);
+      const currentPrice = parseFloat(stock.currentPrice);
+
+      if (!isNaN(qty) && !isNaN(buyPrice) && !isNaN(currentPrice)) {
+        totalInvested += qty * buyPrice;
+        currentValue += qty * currentPrice;
+      }
+    });
+
+    const profit = currentValue - totalInvested;
+    const percent = totalInvested > 0 ? (profit / totalInvested) * 100 : 0;
+
+    setAnalysis({ totalInvested, currentValue, profit, percent });
+  };
+
   return (
     <main className="min-h-screen bg-black text-white p-4">
       <div className="max-w-7xl mx-auto grid grid-cols-[1fr_2fr_1.5fr] gap-6">
@@ -155,6 +177,24 @@ export default function Home() {
 
         <div>
           <h2 className="text-3xl font-bold mb-2">📋 Portfolio</h2>
+
+          <button
+            onClick={analyzePortfolio}
+            className="mb-4 px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+          >
+            🔍 Analyze Portfolio
+          </button>
+
+          {analysis && (
+            <div className="bg-gray-800 p-3 rounded mb-4 text-sm">
+              <div>Total Invested: ₹{analysis.totalInvested.toFixed(2)}</div>
+              <div>Current Value: ₹{analysis.currentValue.toFixed(2)}</div>
+              <div className={analysis.profit >= 0 ? 'text-green-400' : 'text-red-400'}>
+                Profit/Loss: ₹{analysis.profit.toFixed(2)} ({analysis.percent.toFixed(2)}%)
+              </div>
+            </div>
+          )}
+
           <div className="text-xs text-gray-400 grid grid-cols-4 gap-2 px-2 mb-2">
             <span>Name</span>
             <span>Qty</span>
@@ -165,7 +205,7 @@ export default function Home() {
           {selectedStocks.length === 0 ? (
             <p className="text-gray-400">No stocks added yet.</p>
           ) : (
-            <div className="space-y-3 overflow-y-auto max-h-[75vh] pr-2">
+            <div className="space-y-3 overflow-y-auto max-h-[70vh] pr-2">
               {selectedStocks.map((stock, index) => (
                 <div
                   key={stock.value}

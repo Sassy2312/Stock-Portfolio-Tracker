@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { stockOptions } from './stockList';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,6 +9,11 @@ export default function Home() {
   const [selectedStocks, setSelectedStocks] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [marketIndexes, setMarketIndexes] = useState([
+    { name: 'Nifty', value: '-', change: '-' },
+    { name: 'Bank Nifty', value: '-', change: '-' },
+    { name: 'Sensex', value: '-', change: '-' },
+  ]);
 
   const filteredStocks = stockOptions.filter(stock =>
     stock.label.toLowerCase().includes(search.toLowerCase())
@@ -49,15 +54,37 @@ export default function Home() {
     setSelectedStocks(selectedStocks.filter(stock => stock.value !== value));
   };
 
-  const marketIndexes = [
-    { name: 'Nifty', value: '22,500', change: '+0.45%' },
-    { name: 'Bank Nifty', value: '48,200', change: '+0.33%' },
-    { name: 'Sensex', value: '75,100', change: '+0.51%' },
-  ];
+  useEffect(() => {
+    const fetchIndexes = async () => {
+      try {
+        // This is mock data, replace with live API integration if needed
+        const randomize = (base) => {
+          const val = base + (Math.random() - 0.5) * 100;
+          const percent = ((Math.random() - 0.5) * 2).toFixed(2);
+          return [val.toFixed(2), percent];
+        };
+        const [nifty, niftyChange] = randomize(22500);
+        const [bankNifty, bankChange] = randomize(48200);
+        const [sensex, sensexChange] = randomize(75100);
+
+        setMarketIndexes([
+          { name: 'Nifty', value: nifty, change: `${niftyChange}%` },
+          { name: 'Bank Nifty', value: bankNifty, change: `${bankChange}%` },
+          { name: 'Sensex', value: sensex, change: `${sensexChange}%` },
+        ]);
+      } catch (error) {
+        console.error('Error fetching indexes', error);
+      }
+    };
+
+    fetchIndexes();
+    const interval = setInterval(fetchIndexes, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <main className="min-h-screen bg-black text-white p-4">
-      <div className="max-w-4xl mx-auto grid grid-cols-2 gap-6">
+      <div className="max-w-7xl mx-auto grid grid-cols-[2fr_1.5fr] gap-6">
         {/* LEFT PANEL */}
         <div>
           <h1 className="text-3xl font-bold mb-4">📈 Add Stocks</h1>
@@ -126,7 +153,7 @@ export default function Home() {
           {selectedStocks.length === 0 ? (
             <p className="text-gray-400">No stocks added yet.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto max-h-[90vh] pr-2">
               {selectedStocks.map((stock, index) => (
                 <div
                   key={stock.value}

@@ -14,6 +14,7 @@ export default function Home() {
     { name: 'Bank Nifty', value: '-', change: '-' },
     { name: 'Sensex', value: '-', change: '-' },
   ]);
+  const [loading, setLoading] = useState(false);
 
   const dropdownRef = useRef(null);
 
@@ -125,8 +126,10 @@ export default function Home() {
   };
 
   const fetchEverything = async () => {
+    setLoading(true);
     await fetchAllPrices();
     await fetchIndexes();
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -275,10 +278,11 @@ export default function Home() {
 
           <div className="flex gap-2 mt-4">
             <button
-              className="w-1/2 py-2 text-center rounded bg-yellow-600 hover:bg-yellow-700 text-white font-semibold"
+              className={`w-1/2 py-2 text-center rounded text-white font-semibold transition transform ${loading ? 'bg-yellow-400 scale-95 cursor-not-allowed' : 'bg-yellow-600 hover:bg-yellow-700 active:scale-95'}`}
               onClick={fetchEverything}
+              disabled={loading}
             >
-              🔄 Fetch Current Prices
+              {loading ? '🔄 Updating...' : '🔄 Fetch Current Prices'}
             </button>
             <button
               className="w-1/2 py-2 text-center rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold"

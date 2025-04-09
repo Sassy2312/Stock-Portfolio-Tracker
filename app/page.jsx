@@ -1,129 +1,96 @@
+// app/page.jsx
 'use client'
-import React, { useState } from 'react'
+
+import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import stockList from './stockList';
 
 export default function Home() {
-  const [portfolio, setPortfolio] = useState([])
-  const [selectedStock, setSelectedStock] = useState('')
+  const [search, setSearch] = useState('');
+  const [selectedStock, setSelectedStock] = useState(null);
+  const [portfolio, setPortfolio] = useState([]);
 
-  const addStock = () => {
-    if (selectedStock && !portfolio.find(stock => stock.name === selectedStock)) {
-      setPortfolio([...portfolio, { name: selectedStock, quantity: '', price: '' }])
-      setSelectedStock('')
+  const filteredStocks = stockList.filter(stock =>
+    stock.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const addToPortfolio = () => {
+    if (!selectedStock) return;
+    const exists = portfolio.some(item => item.symbol === selectedStock.symbol);
+    if (!exists) {
+      setPortfolio([...portfolio, { ...selectedStock, quantity: '', price: '' }]);
+      setSearch('');
+      setSelectedStock(null);
     }
-  }
+  };
 
-  const updateField = (index, field, value) => {
-    const updatedPortfolio = [...portfolio]
-    updatedPortfolio[index][field] = value
-    setPortfolio(updatedPortfolio)
-  }
+  const updatePortfolio = (symbol, field, value) => {
+    setPortfolio(prev =>
+      prev.map(item =>
+        item.symbol === symbol ? { ...item, [field]: value } : item
+      )
+    );
+  };
 
   return (
-    <div style={styles.container}>
-      {/* Left Panel */}
-      <div style={styles.leftPanel}>
-        <h1 style={styles.heading}>Add Stock</h1>
-        <input
-          type="text"
-          placeholder="Enter NSE stock symbol"
-          value={selectedStock}
-          onChange={(e) => setSelectedStock(e.target.value.toUpperCase())}
-          style={styles.input}
+    <div className="min-h-screen bg-black text-white flex p-4 gap-6">
+      <div className="w-1/2 space-y-4">
+        <h1 className="text-2xl font-bold">Stock Selector</h1>
+        <Input
+          placeholder="Type stock name..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="bg-zinc-900 border-zinc-700 text-white"
         />
-        <button onClick={addStock} style={styles.button}>Add to Portfolio</button>
+        {search && (
+          <div className="bg-zinc-800 rounded-md max-h-60 overflow-y-auto">
+            {filteredStocks.slice(0, 10).map(stock => (
+              <div
+                key={stock.symbol}
+                className="p-2 hover:bg-zinc-700 cursor-pointer"
+                onClick={() => setSelectedStock(stock)}
+              >
+                {stock.name}
+              </div>
+            ))}
+          </div>
+        )}
+        {selectedStock && (
+          <div className="text-green-400">Selected: {selectedStock.name}</div>
+        )}
+        <Button onClick={addToPortfolio} className="bg-green-600 hover:bg-green-700">
+          Add to Portfolio
+        </Button>
       </div>
 
-      {/* Right Panel */}
-      <div style={styles.rightPanel}>
-        <h2 style={styles.heading}>Your Portfolio</h2>
-        {portfolio.length === 0 && <p style={{ color: '#bbb' }}>No stocks added yet.</p>}
-        {portfolio.map((stock, index) => (
-          <div key={index} style={styles.stockRow}>
-            <span style={styles.stockName}>{stock.name}</span>
-            <input
-              type="number"
-              placeholder="Qty"
-              value={stock.quantity}
-              onChange={(e) => updateField(index, 'quantity', e.target.value)}
-              style={styles.smallInput}
-            />
-            <input
-              type="number"
-              placeholder="Price"
-              value={stock.price}
-              onChange={(e) => updateField(index, 'price', e.target.value)}
-              style={styles.smallInput}
-            />
-          </div>
-        ))}
+      <div className="w-1/2">
+        <h2 className="text-2xl font-bold mb-4">Portfolio</h2>
+        <ScrollArea className="bg-zinc-900 rounded-xl p-4 space-y-4 max-h-[70vh]">
+          {portfolio.map(stock => (
+            <div key={stock.symbol} className="border border-zinc-700 p-4 rounded-lg">
+              <div className="font-semibold text-lg mb-2">{stock.name}</div>
+              <div className="flex gap-4">
+                <Input
+                  type="number"
+                  placeholder="Quantity"
+                  value={stock.quantity}
+                  onChange={e => updatePortfolio(stock.symbol, 'quantity', e.target.value)}
+                  className="bg-zinc-800 border-zinc-600 text-white"
+                />
+                <Input
+                  type="number"
+                  placeholder="Buy Price"
+                  value={stock.price}
+                  onChange={e => updatePortfolio(stock.symbol, 'price', e.target.value)}
+                  className="bg-zinc-800 border-zinc-600 text-white"
+                />
+              </div>
+            </div>
+          ))}
+        </ScrollArea>
       </div>
     </div>
-  )
+  );
 }
-
-const styles = {
-  container: {
-    display: 'flex',
-    height: '100vh',
-    backgroundColor: '#0d0d0d',
-    color: '#fff',
-    fontFamily: 'Arial, sans-serif',
-  },
-  leftPanel: {
-    width: '40%',
-    padding: '40px',
-    borderRight: '2px solid #222',
-    boxSizing: 'border-box',
-  },
-  rightPanel: {
-    width: '60%',
-    padding: '40px',
-    boxSizing: 'border-box',
-  },
-  heading: {
-    fontSize: '28px',
-    marginBottom: '20px',
-    color: '#00ffcc',
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    fontSize: '16px',
-    marginBottom: '10px',
-    borderRadius: '6px',
-    border: '1px solid #444',
-    backgroundColor: '#1a1a1a',
-    color: '#fff',
-  },
-  button: {
-    padding: '12px 20px',
-    backgroundColor: '#00cc99',
-    border: 'none',
-    borderRadius: '6px',
-    color: '#000',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-  },
-  stockRow: {
-    display: 'flex',
-    gap: '12px',
-    alignItems: 'center',
-    marginBottom: '16px',
-    backgroundColor: '#111',
-    padding: '12px',
-    borderRadius: '8px',
-  },
-  stockName: {
-    flex: 1,
-    fontWeight: 'bold',
-  },
-  smallInput: {
-    width: '80px',
-    padding: '8px',
-    borderRadius: '6px',
-    border: '1px solid #444',
-    backgroundColor: '#1a1a1a',
-    color: '#fff',
-  },
-}
-

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { stockOptions } from './stockList';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRgoHIl_PJoLDIk-7zwobM4Z2VVRRn6CDlVhTwN2cBzLkWcixEChWqGWfYrM_gNjruRXcSeWX7LMWmn/pub?gid=1839365475&single=true&output=csv';
+
 export default function Home() {
   const [search, setSearch] = useState('');
   const [selectedStocks, setSelectedStocks] = useState([]);
@@ -14,10 +16,8 @@ export default function Home() {
     { name: 'Bank Nifty', value: '-', change: '-' },
     { name: 'Sensex', value: '-', change: '-' },
   ]);
-  const [loading, setLoading] = useState(false);
 
   const dropdownRef = useRef(null);
-
   const filteredStocks = stockOptions.filter(stock =>
     stock.label.toLowerCase().includes(search.toLowerCase())
   );
@@ -59,10 +59,27 @@ export default function Home() {
     }
   };
 
-  const addStock = async (stock) => {
-    if (!selectedStocks.find(s => s.value === stock.value)) {
-      setSelectedStocks(prev => [...prev, { ...stock, quantity: '', price: '', currentPrice: '-' }]);
+  const fetchPriceFromSheet = async (ticker) => {
+    try {
+      const res = await fetch(GOOGLE_SHEET_CSV_URL);
+      const text = await res.text();
+      const rows = text.split('\n').slice(1); // skip header
+      for (const row of rows) {
+        const [_, sheetTicker, sheetPrice] = row.split(',');
+        if (sheetTicker?.trim() === ticker) {
+          return parseFloat(sheetPrice);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching from Google Sheets:', err);
     }
+    return 'N/A';
+  };
+
+  const addStock = async (stock) => {
+    if (selectedStocks.find(s => s.value === stock.value)) return;
+    const price = await fetchPriceFromSheet(stock.value);
+    setSelectedStocks(prev => [...prev, { ...stock, quantity: '', price: '', currentPrice: price }]);
     setSearch('');
     setShowDropdown(false);
     setHighlightedIndex(-1);
@@ -72,82 +89,17 @@ export default function Home() {
     setSelectedStocks(selectedStocks.filter(stock => stock.value !== value));
   };
 
-  const fetchAllPrices = async () => {
-    if (selectedStocks.length === 0) return;
-
-    const symbols = selectedStocks.map(s => `${s.value}.NS`).join(',');
-    try {
-      const res = await fetch(`https://yahoo-finance15.p.rapidapi.com/api/yahoo/qu/quote/${symbols}`, {
-        method: 'GET',
-        headers: {
-          'X-RapidAPI-Key': '0c400e424dmshc02aaef0a45c182p1ddc18jsn94fb3e3f9eec',
-          'X-RapidAPI-Host': 'yahoo-finance15.p.rapidapi.com'
-        }
-      });
-      const data = await res.json();
-
-      const updated = selectedStocks.map(stock => {
-        const match = data.find(r => r.symbol === `${stock.value}.NS`);
-        return {
-          ...stock,
-          currentPrice: match ? match.regularMarketPrice : 'N/A',
-        };
-      });
-
-      setSelectedStocks(updated);
-    } catch (e) {
-      console.error('RapidAPI fetch error', e);
-    }
-  };
-
   const fetchIndexes = async () => {
-    const indexSymbols = {
-      Nifty: '%5ENSEI',
-      'Bank Nifty': '%5ENSEBANK',
-      Sensex: '%5EBSESN'
-    };
-
-    try {
-      const res = await fetch(
-        `https://yahoo-finance15.p.rapidapi.com/api/yahoo/qu/quote/${Object.values(indexSymbols).join(',')}`,
-        {
-          method: 'GET',
-          headers: {
-            'X-RapidAPI-Key': '0c400e424dmshc02aaef0a45c182p1ddc18jsn94fb3e3f9eec',
-            'X-RapidAPI-Host': 'yahoo-finance15.p.rapidapi.com'
-          }
-        }
-      );
-      const data = await res.json();
-
-      const updated = Object.keys(indexSymbols).map((name, i) => {
-        const quote = data.find(q => q.symbol === Object.values(indexSymbols)[i]);
-        const value = quote?.regularMarketPrice?.toFixed(2) || '-';
-        const change = quote?.regularMarketChangePercent?.toFixed(2) || '-';
-        return {
-          name,
-          value,
-          change: `${change}%`
-        };
-      });
-
-      setMarketIndexes(updated);
-    } catch (error) {
-      console.error('Error fetching indexes', error);
-    }
-  };
-
-  const fetchEverything = async () => {
-    setLoading(true);
-    await fetchAllPrices();
-    await fetchIndexes();
-    setLoading(false);
+    const indexSymbols = [
+      { name: 'Nifty', value: '22500.00', change: '+0.10%' },
+      { name: 'Bank Nifty', value: '48200.00', change: '+0.05%' },
+      { name: 'Sensex', value: '75100.00', change: '-0.15%' },
+    ];
+    setMarketIndexes(indexSymbols);
   };
 
   useEffect(() => {
     fetchIndexes();
-    const interval = setInterval(fetchIndexes, 10000);
-    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -287,22 +239,6 @@ export default function Home() {
               ))}
             </div>
           )}
-
-          <div className="flex gap-2 mt-4">
-            <button
-              className={`w-1/2 py-2 text-center rounded text-white font-semibold transition transform ${loading ? 'bg-yellow-400 scale-95 cursor-not-allowed' : 'bg-yellow-600 hover:bg-yellow-700 active:scale-95'}`}
-              onClick={fetchEverything}
-              disabled={loading}
-            >
-              {loading ? '🔄 Updating...' : '🔄 Fetch Current Prices'}
-            </button>
-            <button
-              className="w-1/2 py-2 text-center rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-              onClick={() => alert('Portfolio analysis coming soon...')}
-            >
-              🔍 Analyze
-            </button>
-          </div>
         </div>
       </div>
     </main>

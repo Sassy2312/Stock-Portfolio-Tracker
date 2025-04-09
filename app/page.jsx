@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { stockOptions } from './stockList';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_KEY = '7ed5bc44f1b04fd2bf2864cd9b46ee65';
-
 export default function Home() {
   const [search, setSearch] = useState('');
   const [selectedStocks, setSelectedStocks] = useState([]);
@@ -76,45 +74,51 @@ export default function Home() {
   const fetchAllPrices = async () => {
     if (selectedStocks.length === 0) return;
 
-    const updated = [];
+    const symbols = selectedStocks.map(s => `${s.value}.NS`).join(',');
+    try {
+      const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`);
+      const data = await res.json();
+      const results = data.quoteResponse.result;
 
-    for (let stock of selectedStocks) {
-      try {
-        const res = await fetch(`https://api.twelvedata.com/price?symbol=${stock.value}.NSE&apikey=${API_KEY}`);
-        const data = await res.json();
-        updated.push({
+      const updated = selectedStocks.map(stock => {
+        const match = results.find(r => r.symbol === `${stock.value}.NS`);
+        return {
           ...stock,
-          currentPrice: data?.price || 'N/A',
-        });
-      } catch (e) {
-        updated.push({
-          ...stock,
-          currentPrice: 'N/A',
-        });
-      }
+          currentPrice: match ? match.regularMarketPrice : 'N/A',
+        };
+      });
 
-      await new Promise(resolve => setTimeout(resolve, 800));
+      setSelectedStocks(updated);
+    } catch (e) {
+      console.error('Yahoo fetch error', e);
     }
-
-    setSelectedStocks(updated);
   };
 
   const fetchIndexes = async () => {
-    try {
-      const randomize = (base) => {
-        const val = base + (Math.random() - 0.5) * 100;
-        const percent = ((Math.random() - 0.5) * 2).toFixed(2);
-        return [val.toFixed(2), percent];
-      };
-      const [nifty, niftyChange] = randomize(22500);
-      const [bankNifty, bankChange] = randomize(48200);
-      const [sensex, sensexChange] = randomize(75100);
+    const indexSymbols = {
+      Nifty: '^NSEI',
+      'Bank Nifty': '^NSEBANK',
+      Sensex: '^BSESN'
+    };
 
-      setMarketIndexes([
-        { name: 'Nifty', value: nifty, change: `${niftyChange}%` },
-        { name: 'Bank Nifty', value: bankNifty, change: `${bankChange}%` },
-        { name: 'Sensex', value: sensex, change: `${sensexChange}%` },
-      ]);
+    try {
+      const res = await fetch(
+        `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${Object.values(indexSymbols).join(',')}`
+      );
+      const data = await res.json();
+
+      const updated = Object.keys(indexSymbols).map((name, i) => {
+        const quote = data.quoteResponse.result.find(q => q.symbol === Object.values(indexSymbols)[i]);
+        const value = quote?.regularMarketPrice?.toFixed(2) || '-';
+        const change = quote?.regularMarketChangePercent?.toFixed(2) || '-';
+        return {
+          name,
+          value,
+          change: `${change}%`
+        };
+      });
+
+      setMarketIndexes(updated);
     } catch (error) {
       console.error('Error fetching indexes', error);
     }
@@ -127,7 +131,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchIndexes();
-    const interval = setInterval(fetchIndexes, 5000);
+    const interval = setInterval(fetchIndexes, 10000);
     return () => clearInterval(interval);
   }, []);
 

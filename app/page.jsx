@@ -77,12 +77,17 @@ export default function Home() {
 
     const symbols = selectedStocks.map(s => `${s.value}.NS`).join(',');
     try {
-      const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`);
+      const res = await fetch(`https://yahoo-finance15.p.rapidapi.com/api/yahoo/qu/quote/${symbols}`, {
+        method: 'GET',
+        headers: {
+          'X-RapidAPI-Key': '0c400e424dmshc02aaef0a45c182p1ddc18jsn94fb3e3f9eec',
+          'X-RapidAPI-Host': 'yahoo-finance15.p.rapidapi.com'
+        }
+      });
       const data = await res.json();
-      const results = data.quoteResponse.result;
 
       const updated = selectedStocks.map(stock => {
-        const match = results.find(r => r.symbol === `${stock.value}.NS`);
+        const match = data.find(r => r.symbol === `${stock.value}.NS`);
         return {
           ...stock,
           currentPrice: match ? match.regularMarketPrice : 'N/A',
@@ -91,25 +96,32 @@ export default function Home() {
 
       setSelectedStocks(updated);
     } catch (e) {
-      console.error('Yahoo fetch error', e);
+      console.error('RapidAPI fetch error', e);
     }
   };
 
   const fetchIndexes = async () => {
     const indexSymbols = {
-      Nifty: '^NSEI',
-      'Bank Nifty': '^NSEBANK',
-      Sensex: '^BSESN'
+      Nifty: '%5ENSEI',
+      'Bank Nifty': '%5ENSEBANK',
+      Sensex: '%5EBSESN'
     };
 
     try {
       const res = await fetch(
-        `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${Object.values(indexSymbols).join(',')}`
+        `https://yahoo-finance15.p.rapidapi.com/api/yahoo/qu/quote/${Object.values(indexSymbols).join(',')}`,
+        {
+          method: 'GET',
+          headers: {
+            'X-RapidAPI-Key': '0c400e424dmshc02aaef0a45c182p1ddc18jsn94fb3e3f9eec',
+            'X-RapidAPI-Host': 'yahoo-finance15.p.rapidapi.com'
+          }
+        }
       );
       const data = await res.json();
 
       const updated = Object.keys(indexSymbols).map((name, i) => {
-        const quote = data.quoteResponse.result.find(q => q.symbol === Object.values(indexSymbols)[i]);
+        const quote = data.find(q => q.symbol === Object.values(indexSymbols)[i]);
         const value = quote?.regularMarketPrice?.toFixed(2) || '-';
         const change = quote?.regularMarketChangePercent?.toFixed(2) || '-';
         return {

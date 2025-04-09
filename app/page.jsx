@@ -100,7 +100,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-black text-white p-4">
-      <div className="max-w-7xl mx-auto grid grid-cols-[2fr_1.5fr] gap-6">
+      <div className="max-w-7xl mx-auto grid grid-cols-[2fr_1.2fr] gap-6">
         {/* LEFT PANEL */}
         <div>
           <h1 className="text-3xl font-bold mb-4">📈 Add Stocks</h1>
@@ -126,7 +126,7 @@ export default function Home() {
                 {filteredStocks.map((stock, index) => (
                   <li
                     key={index}
-                    className={`px-4 py-2 cursor-pointer flex items-center gap-2 ${
+                    className={`px-4 py-2 cursor-pointer flex items-center gap-2 text-sm ${
                       highlightedIndex === index ? 'bg-blue-700' : 'hover:bg-gray-700'
                     }`}
                     onClick={() => addStock(stock)}
@@ -134,7 +134,7 @@ export default function Home() {
                     <img
                       src={`https://assets.smallcase.com/logos/${stock.value.toLowerCase()}.png`}
                       alt="logo"
-                      className="w-5 h-5 rounded-full"
+                      className="w-4 h-4 rounded-full"
                       onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = 'https://via.placeholder.com/20x20?text=S';
@@ -152,7 +152,7 @@ export default function Home() {
             {marketIndexes.map((index) => (
               <div
                 key={index.name}
-                className="bg-gray-800 px-4 py-2 rounded flex justify-between items-center"
+                className="bg-gray-800 px-4 py-2 rounded flex justify-between items-center text-sm"
               >
                 <span>{index.name}</span>
                 <span>
@@ -171,62 +171,63 @@ export default function Home() {
         {/* RIGHT PANEL */}
         <div>
           <h2 className="text-3xl font-bold mb-4">📋 Portfolio</h2>
+
+          {/* Portfolio Header */}
+          <div className="text-sm text-gray-400 grid grid-cols-3 gap-2 px-2 mb-2">
+            <span>Name</span>
+            <span>Qty</span>
+            <span>Purchase Price</span>
+          </div>
+
           {selectedStocks.length === 0 ? (
             <p className="text-gray-400">No stocks added yet.</p>
           ) : (
-            <div className="space-y-4 overflow-y-auto max-h-[90vh] pr-2">
+            <div className="space-y-3 overflow-y-auto max-h-[90vh] pr-2">
               {selectedStocks.map((stock, index) => (
                 <div
                   key={stock.value}
-                  className="bg-gray-800 p-4 rounded flex justify-between items-center relative group"
+                  className="bg-gray-800 p-2 rounded flex justify-between items-center relative group text-sm"
                 >
-                  <div>
-                    <p className="font-semibold flex items-center gap-2">
-                      <img
-                        src={`https://assets.smallcase.com/logos/${stock.value.toLowerCase()}.png`}
-                        alt="logo"
-                        className="w-5 h-5 rounded-full"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'https://via.placeholder.com/20x20?text=S';
-                        }}
-                      />
-                      {stock.label}
-                    </p>
-                    <div className="flex gap-4 mt-2">
-                      <input
-                        type="number"
-                        placeholder="Qty"
-                        value={stock.quantity}
-                        onChange={(e) =>
-                          setSelectedStocks((prev) =>
-                            prev.map((s, i) =>
-                              i === index ? { ...s, quantity: e.target.value } : s
-                            )
+                  <div className="grid grid-cols-3 gap-2 items-center w-full">
+                    <a
+                      href={`https://www.screener.in/company/${stock.value}/consolidated/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:underline"
+                    >
+                      {stock.label.split('(')[0].trim()}
+                    </a>
+                    <input
+                      type="number"
+                      placeholder="Qty"
+                      value={stock.quantity}
+                      onChange={(e) =>
+                        setSelectedStocks((prev) =>
+                          prev.map((s, i) =>
+                            i === index ? { ...s, quantity: e.target.value } : s
                           )
-                        }
-                        className="w-20 p-1 rounded bg-gray-700 text-white"
-                      />
-                      <input
-                        type="number"
-                        placeholder="₹ Price"
-                        value={stock.price}
-                        onChange={(e) =>
-                          setSelectedStocks((prev) =>
-                            prev.map((s, i) =>
-                              i === index ? { ...s, price: e.target.value } : s
-                            )
+                        )
+                      }
+                      className="w-full p-1 rounded bg-gray-700 text-white"
+                    />
+                    <input
+                      type="number"
+                      placeholder="₹ Price"
+                      value={stock.price}
+                      onChange={(e) =>
+                        setSelectedStocks((prev) =>
+                          prev.map((s, i) =>
+                            i === index ? { ...s, price: e.target.value } : s
                           )
-                        }
-                        className="w-24 p-1 rounded bg-gray-700 text-white"
-                      />
-                    </div>
+                        )
+                      }
+                      className="w-full p-1 rounded bg-gray-700 text-white"
+                    />
                   </div>
-
                   {/* REMOVE BUTTON */}
                   <button
                     onClick={() => removeStock(stock.value)}
-                    className="absolute top-2 right-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
+                    className="absolute top-1 right-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
                     title="Remove"
                   >
                     ×

@@ -12,8 +12,22 @@ export default function Home() {
   const [selectedStocks, setSelectedStocks] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [priceMap, setPriceMap] = useState({});
 
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const fetchAllPrices = async () => {
+      try {
+        const res = await fetch(SHEET_URL);
+        const data = await res.json();
+        setPriceMap(data);
+      } catch (err) {
+        console.error('Failed to fetch price map', err);
+      }
+    };
+    fetchAllPrices();
+  }, []);
 
   const filteredStocks = stockOptions.filter(stock =>
     stock.label.toLowerCase().includes(search.toLowerCase())
@@ -60,33 +74,12 @@ export default function Home() {
 
   const addStock = (stock) => {
     if (!selectedStocks.find(s => s.value === stock.value)) {
-      setSelectedStocks(prev => [...prev, { ...stock, quantity: '', price: '', currentPrice: 'Loading...' }]);
-      fetchCurrentPrice(stock.value).then(price => {
-        setSelectedStocks(prev =>
-          prev.map(s =>
-            s.value === stock.value ? { ...s, currentPrice: price } : s
-          )
-        );
-      });
+      const currentPrice = priceMap[stock.value] || 'N/A';
+      setSelectedStocks(prev => [...prev, { ...stock, quantity: '', price: '', currentPrice }]);
     }
     setSearch('');
     setShowDropdown(false);
     setHighlightedIndex(-1);
-  };
-
-  const fetchCurrentPrice = async (ticker) => {
-    try {
-      const response = await fetch(`${SHEET_URL}?ticker=${ticker}`);
-      const data = await response.json();
-      if (typeof data.price === 'string' || typeof data.price === 'number') {
-        return data.price;
-      } else {
-        return 'N/A';
-      }
-    } catch (err) {
-      console.error('Fetch price error for', ticker, err);
-      return 'N/A';
-    }
   };
 
   const removeStock = (value) => {

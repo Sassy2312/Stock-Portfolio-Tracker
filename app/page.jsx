@@ -12,9 +12,9 @@ export default function Home() {
   const [selectedStocks, setSelectedStocks] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [analysisData, setAnalysisData] = useState(null);
-  const portfolioRef = useRef(null);
+  const [analysis, setAnalysis] = useState(null);
   const dropdownRef = useRef(null);
+  const lastStockRef = useRef(null);
 
   const filteredStocks = stockOptions.filter(stock =>
     stock.label.toLowerCase().includes(search.toLowerCase())
@@ -59,26 +59,18 @@ export default function Home() {
     }
   };
 
-  const scrollToBottom = () => {
-    if (portfolioRef.current) {
-      portfolioRef.current.scrollTop = portfolioRef.current.scrollHeight;
-    }
-  };
-
-  const addStock = (stock) => {
+  const addStock = async (stock) => {
     if (!selectedStocks.find(s => s.value === stock.value)) {
-      setSelectedStocks(prev => {
-        const updated = [...prev, { ...stock, quantity: '', price: '', currentPrice: 'Loading...' }];
-        fetchCurrentPrice(stock.value).then(price => {
-          setSelectedStocks(current =>
-            current.map(s =>
-              s.value === stock.value ? { ...s, currentPrice: price } : s
-            )
-          );
-        });
-        setTimeout(scrollToBottom, 200);
-        return updated;
-      });
+      const price = await fetchCurrentPrice(stock.value);
+      setSelectedStocks(prev => [...prev, {
+        ...stock, quantity: '', price: '', currentPrice: price || 'N/A'
+      }]);
+
+      setTimeout(() => {
+        if (lastStockRef.current) {
+          lastStockRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }, 100);
     }
     setSearch('');
     setShowDropdown(false);
@@ -89,13 +81,8 @@ export default function Home() {
     try {
       const response = await fetch(`${SHEET_URL}?ticker=${ticker}`);
       const data = await response.json();
-      if (typeof data.price === 'string' || typeof data.price === 'number') {
-        return data.price;
-      } else {
-        return 'N/A';
-      }
+      return data.price || 'N/A';
     } catch (err) {
-      console.error('Fetch price error for', ticker, err);
       return 'N/A';
     }
   };
@@ -107,41 +94,58 @@ export default function Home() {
   const savePortfolio = async () => {
     if (!portfolioName || selectedStocks.length === 0) return;
 
-    const payload = selectedStocks.map(stock => [
-      portfolioName,
-      stock.label.split('(')[0].trim(),
-      stock.quantity,
-      stock.price
-    ]);
+    const payload = selectedStocks.map(stock => {
+      const qty = parseFloat(stock.quantity);
+      const buy = parseFloat(stock.price);
+      const curr = parseFloat(stock.currentPrice);
+      const invested = !isNaN(qty) && !isNaN(buy) ? qty * buy : 0;
+      const current = !isNaN(qty) && !isNaN(curr) ? qty * curr : 0;
+      const profit = current - invested;
+      const changePercent = invested ? (profit / invested) * 100 : 0;
+      return {
+        portfolioName,
+        ticker: stock.value,
+        quantity: stock.quantity,
+        buyPrice: stock.price,
+        currentPrice: stock.currentPrice,
+        invested: invested.toFixed(2),
+        profit: profit.toFixed(2),
+        changePercent: changePercent.toFixed(2)
+      };
+    });
 
     try {
-      await fetch(SHEET_URL, {
+      const res = await fetch(SHEET_URL, {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: { 'Content-Type': 'application/json' },
       });
-      alert('✅ Portfolio saved!');
-    } catch (error) {
-      console.error('Error saving portfolio:', error);
+      const text = await res.text();
+      alert(text);
+    } catch (err) {
+      alert('❌ Failed to save portfolio');
     }
   };
 
   const analyzePortfolio = () => {
-    let totalInvested = 0;
-    let totalCurrent = 0;
-
-    selectedStocks.forEach(stock => {
+    let totalInvested = 0, totalCurrent = 0;
+    const details = selectedStocks.map(stock => {
       const qty = parseFloat(stock.quantity);
       const buy = parseFloat(stock.price);
       const curr = parseFloat(stock.currentPrice);
-
-      if (!isNaN(qty) && !isNaN(buy)) totalInvested += qty * buy;
-      if (!isNaN(qty) && !isNaN(curr)) totalCurrent += qty * curr;
+      const invested = !isNaN(qty) && !isNaN(buy) ? qty * buy : 0;
+      const current = !isNaN(qty) && !isNaN(curr) ? qty * curr : 0;
+      totalInvested += invested;
+      totalCurrent += current;
+      return {
+        ...stock,
+        invested,
+        current,
+        profit: current - invested,
+        change: invested ? ((current - invested) / invested) * 100 : 0
+      };
     });
-
-    const change = ((totalCurrent - totalInvested) / totalInvested) * 100;
-    setAnalysisData({ totalInvested, totalCurrent, change });
-    setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+    setAnalysis({ totalInvested, totalCurrent, details });
   };
 
   return (
@@ -149,7 +153,6 @@ export default function Home() {
       <div className="max-w-7xl mx-auto grid grid-cols-[2fr_1.5fr] gap-6">
         <div>
           <h1 className="text-3xl font-bold mb-4">📈 Add Stocks</h1>
-
           <input
             type="text"
             placeholder="Portfolio name"
@@ -157,7 +160,6 @@ export default function Home() {
             value={portfolioName}
             onChange={(e) => setPortfolioName(e.target.value)}
           />
-
           <input
             type="text"
             placeholder="Start typing stock name..."
@@ -166,7 +168,6 @@ export default function Home() {
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
           />
-
           <AnimatePresence>
             {showDropdown && (
               <motion.ul
@@ -179,19 +180,14 @@ export default function Home() {
                 {filteredStocks.map((stock, index) => (
                   <li
                     key={index}
-                    className={`px-4 py-2 cursor-pointer flex items-center gap-2 text-sm ${
-                      highlightedIndex === index ? 'bg-blue-700' : 'hover:bg-gray-700'
-                    }`}
+                    className={`px-4 py-2 cursor-pointer flex items-center gap-2 text-sm ${highlightedIndex === index ? 'bg-blue-700' : 'hover:bg-gray-700'}`}
                     onClick={() => addStock(stock)}
                   >
                     <img
                       src={`https://assets.smallcase.com/logos/${stock.value.toLowerCase()}.png`}
                       alt="logo"
                       className="w-4 h-4 rounded-full"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = 'https://via.placeholder.com/20x20?text=S';
-                      }}
+                      onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/20x20?text=S'; }}
                     />
                     {stock.label}
                   </li>
@@ -199,25 +195,35 @@ export default function Home() {
               </motion.ul>
             )}
           </AnimatePresence>
+
+          {analysis && (
+            <div className="mt-6 bg-gray-800 p-4 rounded">
+              <h2 className="text-2xl font-bold mb-2">📊 Portfolio Analysis</h2>
+              <p>Total Invested: ₹{analysis.totalInvested.toFixed(2)}</p>
+              <p>Current Value: ₹{analysis.totalCurrent.toFixed(2)}</p>
+              <p className={`font-bold ${analysis.totalCurrent >= analysis.totalInvested ? 'text-green-400' : 'text-red-400'}`}>
+                % Change: {(((analysis.totalCurrent - analysis.totalInvested) / analysis.totalInvested) * 100).toFixed(2)}%
+              </p>
+            </div>
+          )}
         </div>
 
         <div>
           <h2 className="text-3xl font-bold mb-2">📋 Portfolio</h2>
-
           <div className="text-xs text-gray-400 grid grid-cols-4 gap-2 px-2 mb-2">
             <span>Name</span>
             <span>Qty</span>
             <span>Buy ₹</span>
             <span>Current</span>
           </div>
-
           {selectedStocks.length === 0 ? (
             <p className="text-gray-400">No stocks added yet.</p>
           ) : (
-            <div ref={portfolioRef} className="space-y-3 overflow-y-auto max-h-[70vh] pr-2">
+            <div className="space-y-3 overflow-y-auto max-h-[70vh] pr-2">
               {selectedStocks.map((stock, index) => (
                 <div
                   key={stock.value}
+                  ref={index === selectedStocks.length - 1 ? lastStockRef : null}
                   className="bg-gray-800 p-2 rounded flex justify-between items-center relative group text-xs"
                 >
                   <div className="grid grid-cols-4 gap-2 items-center w-full">
@@ -235,9 +241,7 @@ export default function Home() {
                       value={stock.quantity}
                       onChange={(e) =>
                         setSelectedStocks((prev) =>
-                          prev.map((s, i) =>
-                            i === index ? { ...s, quantity: e.target.value } : s
-                          )
+                          prev.map((s, i) => i === index ? { ...s, quantity: e.target.value } : s)
                         )
                       }
                       className="w-full p-1 rounded bg-gray-700 text-white"
@@ -248,9 +252,7 @@ export default function Home() {
                       value={stock.price}
                       onChange={(e) =>
                         setSelectedStocks((prev) =>
-                          prev.map((s, i) =>
-                            i === index ? { ...s, price: e.target.value } : s
-                          )
+                          prev.map((s, i) => i === index ? { ...s, price: e.target.value } : s)
                         )
                       }
                       className="w-full p-1 rounded bg-gray-700 text-white"
@@ -268,7 +270,6 @@ export default function Home() {
               ))}
             </div>
           )}
-
           <div className="flex gap-2 mt-4">
             <button
               className="w-1/2 py-2 text-center rounded bg-green-600 hover:bg-green-700 text-white font-semibold"
@@ -285,19 +286,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      {analysisData && (
-        <div className="mt-10 p-6 rounded bg-gray-800 max-w-3xl mx-auto text-sm shadow">
-          <h2 className="text-2xl mb-3 font-bold">📉 Portfolio Analysis</h2>
-          <p>💼 Total Invested: ₹{analysisData.totalInvested.toFixed(2)}</p>
-          <p>💰 Current Value: ₹{analysisData.totalCurrent.toFixed(2)}</p>
-          <p className={
-            analysisData.change >= 0 ? 'text-green-400' : 'text-red-400'
-          }>
-            📈 % Change: {analysisData.change.toFixed(2)}%
-          </p>
-        </div>
-      )}
     </main>
   );
 }

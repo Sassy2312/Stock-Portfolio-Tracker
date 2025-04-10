@@ -1,266 +1,239 @@
-'use client';
+import React, { useEffect, useState } from 'react';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-import { useEffect, useRef, useState } from 'react';
-import { stockOptions } from './stockList';
-import { motion, AnimatePresence } from 'framer-motion';
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyJY2reiFApdYtxDaH6SOhbBimujyzn_Y0A-x_-sr7ecPuK9j45P072ZCFO4PiHjpD-/exec';
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AA336A', '#8884d8', '#82ca9d'];
 
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyWF99ycQ93t9y7ErTf0KJqocI-7n9mOW6yT1uB7CLtIhDeUM1zqL2cPVPKfMCUcAzz/exec';
-
-export default function Home() {
-  const [search, setSearch] = useState('');
-  const [selectedStocks, setSelectedStocks] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [marketIndexes, setMarketIndexes] = useState([
-    { name: 'Nifty', value: '-', change: '-' },
-    { name: 'Bank Nifty', value: '-', change: '-' },
-    { name: 'Sensex', value: '-', change: '-' },
-  ]);
-  const [priceMap, setPriceMap] = useState({});
-  const [analysis, setAnalysis] = useState(null);
-
-  const dropdownRef = useRef(null);
+export default function Page() {
+  const [portfolioName, setPortfolioName] = useState('');
+  const [portfolioList, setPortfolioList] = useState([]);
+  const [portfolio, setPortfolio] = useState([{ stock: '', quantity: '', buyPrice: '' }]);
+  const [prices, setPrices] = useState({});
+  const [analyze, setAnalyze] = useState(false);
 
   useEffect(() => {
-    fetchPricesFromAppsScript();
-    fetchIndexes();
+    fetchPrices();
+    fetchSavedPortfolios();
   }, []);
 
-  const fetchPricesFromAppsScript = async () => {
+  const fetchPrices = async () => {
     try {
-      const res = await fetch(APPS_SCRIPT_URL);
-      const json = await res.json();
-      setPriceMap(json);
+      const res = await fetch(SHEET_URL);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const priceMap = {};
+        data.forEach(row => {
+          const ticker = row[0]?.trim().toUpperCase();
+          priceMap[ticker] = {
+            currentPrice: parseFloat(row[1]),
+            pe: row[2],
+            marketCap: row[3],
+            eps: row[4],
+            weekHigh: row[5],
+            weekLow: row[6],
+            dayChange: row[7],
+            volume: row[8],
+          };
+        });
+        setPrices(priceMap);
+      }
     } catch (err) {
-      console.error('Apps Script fetch error:', err);
+      console.error('Error fetching prices:', err);
     }
   };
 
-  const fetchIndexes = async () => {
-    const indexSymbols = [
-      { name: 'Nifty', value: '22500.00', change: '+0.10%' },
-      { name: 'Bank Nifty', value: '48200.00', change: '+0.05%' },
-      { name: 'Sensex', value: '75100.00', change: '-0.15%' },
-    ];
-    setMarketIndexes(indexSymbols);
-  };
-
-  const filteredStocks = stockOptions.filter(stock =>
-    stock.label.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleInputChange = (e) => {
-    setSearch(e.target.value);
-    setShowDropdown(e.target.value.length > 0);
-    setHighlightedIndex(-1);
-  };
-
-  const handleKeyDown = (e) => {
-    if (!showDropdown) return;
-    if (e.key === 'ArrowDown') {
-      setHighlightedIndex(prev => Math.min(prev + 1, filteredStocks.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      setHighlightedIndex(prev => Math.max(prev - 1, 0));
-    } else if (e.key === 'Enter') {
-      if (highlightedIndex >= 0 && filteredStocks[highlightedIndex]) {
-        addStock(filteredStocks[highlightedIndex]);
-      } else if (filteredStocks.length === 1) {
-        addStock(filteredStocks[0]);
-      }
+  const fetchSavedPortfolios = async () => {
+    // In actual implementation, fetch saved portfolio names
+    // Here, simulate saved portfolio dropdown
+    const saved = localStorage.getItem('savedPortfolios');
+    if (saved) {
+      setPortfolioList(JSON.parse(saved));
     }
   };
 
-  const scrollToItem = (index) => {
-    if (dropdownRef.current) {
-      const listItem = dropdownRef.current.children[index];
-      if (listItem) listItem.scrollIntoView({ block: 'nearest' });
+  const updatePortfolio = (index, key, value) => {
+    const newPortfolio = [...portfolio];
+    newPortfolio[index][key] = value;
+    setPortfolio(newPortfolio);
+  };
+
+  const addRow = () => {
+    setPortfolio([...portfolio, { stock: '', quantity: '', buyPrice: '' }]);
+  };
+
+  const calcProfit = (stock) => {
+    const p = prices[stock.toUpperCase()];
+    return p ? parseFloat(p.currentPrice) : 0;
+  };
+
+  const portfolioData = portfolio.map(entry => {
+    const stock = entry.stock.trim().toUpperCase();
+    const qty = parseFloat(entry.quantity);
+    const buy = parseFloat(entry.buyPrice);
+    const live = calcProfit(stock);
+    const invested = qty * buy;
+    const current = qty * live;
+    return {
+      stock,
+      quantity: qty,
+      buyPrice: buy,
+      invested,
+      current,
+      profit: current - invested,
+      change: invested > 0 ? ((current - invested) / invested) * 100 : 0,
+      currentPrice: live,
+    };
+  });
+
+  const totalInvested = portfolioData.reduce((sum, row) => sum + row.invested, 0);
+  const totalCurrent = portfolioData.reduce((sum, row) => sum + row.current, 0);
+  const totalProfit = totalCurrent - totalInvested;
+  const totalChange = (totalProfit / totalInvested) * 100;
+
+  const savePortfolio = async () => {
+    if (!portfolioName.trim()) {
+      alert('Please enter a portfolio name to save.');
+      return;
     }
-  };
+    const payload = portfolioData.map(p => ({
+      portfolioName,
+      ticker: p.stock,
+      quantity: p.quantity,
+      buyPrice: p.buyPrice,
+      currentPrice: p.currentPrice,
+      invested: p.invested,
+      profit: p.profit,
+      changePercent: p.change
+    }));
 
-  const addStock = (stock) => {
-    if (selectedStocks.find(s => s.value === stock.value)) return;
-    const price = priceMap[stock.value] ?? 'N/A';
-    setSelectedStocks(prev => [...prev, { ...stock, quantity: '', price: '', currentPrice: price }]);
-    setSearch('');
-    setShowDropdown(false);
-    setHighlightedIndex(-1);
-  };
-
-  const removeStock = (value) => {
-    setSelectedStocks(selectedStocks.filter(stock => stock.value !== value));
-  };
-
-  const analyzePortfolio = () => {
-    let totalInvested = 0;
-    let currentValue = 0;
-
-    selectedStocks.forEach(stock => {
-      const qty = parseFloat(stock.quantity);
-      const buyPrice = parseFloat(stock.price);
-      const currentPrice = parseFloat(stock.currentPrice);
-
-      if (!isNaN(qty) && !isNaN(buyPrice) && !isNaN(currentPrice)) {
-        totalInvested += qty * buyPrice;
-        currentValue += qty * currentPrice;
-      }
-    });
-
-    const profit = currentValue - totalInvested;
-    const percent = totalInvested > 0 ? (profit / totalInvested) * 100 : 0;
-
-    setAnalysis({ totalInvested, currentValue, profit, percent });
+    try {
+      const res = await fetch(SHEET_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const text = await res.text();
+      alert(text);
+    } catch (err) {
+      alert('Failed to save portfolio');
+    }
   };
 
   return (
-    <main className="min-h-screen bg-black text-white p-4">
-      <div className="max-w-7xl mx-auto grid grid-cols-[1fr_2fr_1.5fr] gap-6">
-        <div className="space-y-4">
-          {marketIndexes.map((index) => (
-            <div
-              key={index.name}
-              className="bg-gray-800 w-28 h-28 flex flex-col items-center justify-center rounded shadow-md"
-            >
-              <span className="text-sm font-semibold">{index.name}</span>
-              <span className="text-xl">{index.value}</span>
-              <span
-                className={`text-sm ${index.change.startsWith('-') ? 'text-red-400' : 'text-green-400'}`}
-              >
-                {index.change}
-              </span>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">💼 Stellar Portfolio Dashboard</h1>
+
+      <div className="mb-4">
+        <label className="mr-2 font-medium">Portfolio Name:</label>
+        <input
+          type="text"
+          value={portfolioName}
+          onChange={(e) => setPortfolioName(e.target.value)}
+          className="border p-2 rounded w-64"
+          placeholder="My Portfolio"
+        />
+        <button
+          onClick={savePortfolio}
+          className="ml-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+        >
+          💾 Save Portfolio
+        </button>
+        <button
+          onClick={() => setAnalyze(true)}
+          className="ml-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          📊 Analyze Portfolio
+        </button>
+      </div>
+
+      {!analyze && (
+        <div>
+          {portfolio.map((entry, index) => (
+            <div key={index} className="grid grid-cols-3 gap-4 mb-2">
+              <input
+                className="border p-2 rounded"
+                placeholder="Ticker (e.g. CAMS)"
+                value={entry.stock}
+                onChange={(e) => updatePortfolio(index, 'stock', e.target.value)}
+              />
+              <input
+                type="number"
+                placeholder="Quantity"
+                className="border p-2 rounded"
+                value={entry.quantity}
+                onChange={(e) => updatePortfolio(index, 'quantity', e.target.value)}
+              />
+              <input
+                type="number"
+                placeholder="Buy Price"
+                className="border p-2 rounded"
+                value={entry.buyPrice}
+                onChange={(e) => updatePortfolio(index, 'buyPrice', e.target.value)}
+              />
             </div>
           ))}
-        </div>
-
-        <div>
-          <h1 className="text-3xl font-bold mb-4">📈 Add Stocks</h1>
-          <input
-            type="text"
-            placeholder="Start typing stock name..."
-            className="w-full px-4 py-2 rounded bg-gray-800 text-white border border-gray-600 focus:outline-none"
-            value={search}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-          />
-          <AnimatePresence>
-            {showDropdown && (
-              <motion.ul
-                ref={dropdownRef}
-                className="bg-gray-900 border border-gray-700 mt-2 rounded max-h-64 overflow-y-auto"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                {filteredStocks.map((stock, index) => (
-                  <li
-                    key={index}
-                    className={`px-4 py-2 cursor-pointer flex items-center gap-2 text-sm ${
-                      highlightedIndex === index ? 'bg-blue-700' : 'hover:bg-gray-700'
-                    }`}
-                    onClick={() => addStock(stock)}
-                  >
-                    <img
-                      src={`https://assets.smallcase.com/logos/${stock.value.toLowerCase()}.png`}
-                      alt="logo"
-                      className="w-4 h-4 rounded-full"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = 'https://via.placeholder.com/20x20?text=S';
-                      }}
-                    />
-                    {stock.label}
-                  </li>
-                ))}
-              </motion.ul>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div>
-          <h2 className="text-3xl font-bold mb-2">📋 Portfolio</h2>
-
           <button
-            onClick={analyzePortfolio}
-            className="mb-4 px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-          >
-            🔍 Analyze Portfolio
-          </button>
+            onClick={addRow}
+            className="mt-2 bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700"
+          >+ Add Stock</button>
+        </div>
+      )}
 
-          {analysis && (
-            <div className="bg-gray-800 p-3 rounded mb-4 text-sm">
-              <div>Total Invested: ₹{analysis.totalInvested.toFixed(2)}</div>
-              <div>Current Value: ₹{analysis.currentValue.toFixed(2)}</div>
-              <div className={analysis.profit >= 0 ? 'text-green-400' : 'text-red-400'}>
-                Profit/Loss: ₹{analysis.profit.toFixed(2)} ({analysis.percent.toFixed(2)}%)
-              </div>
-            </div>
-          )}
-
-          <div className="text-xs text-gray-400 grid grid-cols-4 gap-2 px-2 mb-2">
-            <span>Name</span>
-            <span>Qty</span>
-            <span>Buy ₹</span>
-            <span>Current</span>
+      {analyze && (
+        <div>
+          <button onClick={() => setAnalyze(false)} className="mb-4 bg-gray-600 text-white px-3 py-2 rounded">← Back</button>
+          <h2 className="text-xl font-semibold mb-2">Portfolio Summary: {portfolioName || 'Untitled'}</h2>
+          <div className={`mb-4 text-lg font-medium ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            Invested: ₹{totalInvested.toFixed(2)} | Current: ₹{totalCurrent.toFixed(2)} | Net Change: {totalChange.toFixed(2)}%
           </div>
 
-          {selectedStocks.length === 0 ? (
-            <p className="text-gray-400">No stocks added yet.</p>
-          ) : (
-            <div className="space-y-3 overflow-y-auto max-h-[70vh] pr-2">
-              {selectedStocks.map((stock, index) => (
-                <div
-                  key={stock.value}
-                  className="bg-gray-800 p-2 rounded flex justify-between items-center relative group text-xs"
-                >
-                  <div className="grid grid-cols-4 gap-2 items-center w-full">
-                    <a
-                      href={`https://www.screener.in/company/${stock.value}/consolidated/`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-400 hover:underline truncate"
-                    >
-                      {stock.label.split('(')[0].trim()}
-                    </a>
-                    <input
-                      type="number"
-                      placeholder="Qty"
-                      value={stock.quantity}
-                      onChange={(e) =>
-                        setSelectedStocks((prev) =>
-                          prev.map((s, i) =>
-                            i === index ? { ...s, quantity: e.target.value } : s
-                          )
-                        )
-                      }
-                      className="w-full p-1 rounded bg-gray-700 text-white"
-                    />
-                    <input
-                      type="number"
-                      placeholder="₹ Price"
-                      value={stock.price}
-                      onChange={(e) =>
-                        setSelectedStocks((prev) =>
-                          prev.map((s, i) =>
-                            i === index ? { ...s, price: e.target.value } : s
-                          )
-                        )
-                      }
-                      className="w-full p-1 rounded bg-gray-700 text-white"
-                    />
-                    <span className="text-green-400 text-center">{stock.currentPrice}</span>
-                  </div>
-                  <button
-                    onClick={() => removeStock(stock.value)}
-                    className="absolute top-1 right-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
-                    title="Remove"
-                  >
-                    ×
-                  </button>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie data={portfolioData} dataKey="current" nameKey="stock" cx="50%" cy="50%" outerRadius={100}>
+                  {portfolioData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={portfolioData}>
+                <XAxis dataKey="stock" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="profit" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <table className="mt-6 w-full border text-sm">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border px-2">Stock</th>
+                <th className="border px-2">Invested</th>
+                <th className="border px-2">Current</th>
+                <th className="border px-2">Profit</th>
+                <th className="border px-2">% Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              {portfolioData.map((row, idx) => (
+                <tr key={idx} className="text-center">
+                  <td className="border px-2">{row.stock}</td>
+                  <td className="border px-2">₹{row.invested.toFixed(2)}</td>
+                  <td className="border px-2">₹{row.current.toFixed(2)}</td>
+                  <td className={`border px-2 ${row.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>₹{row.profit.toFixed(2)}</td>
+                  <td className={`border px-2 ${row.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>{row.change.toFixed(2)}%</td>
+                </tr>
               ))}
-            </div>
-          )}
+            </tbody>
+          </table>
         </div>
-      </div>
-    </main>
+      )}
+    </div>
   );
 }

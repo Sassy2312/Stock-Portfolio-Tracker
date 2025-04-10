@@ -58,11 +58,16 @@ export default function Home() {
     }
   };
 
-  const addStock = async (stock) => {
-    console.log("Adding stock: ", stock);
+  const addStock = (stock) => {
     if (!selectedStocks.find(s => s.value === stock.value)) {
-      const price = await fetchCurrentPrice(stock.value);
-      setSelectedStocks(prev => [...prev, { ...stock, quantity: '', price: '', currentPrice: price }]);
+      setSelectedStocks(prev => [...prev, { ...stock, quantity: '', price: '', currentPrice: 'Loading...' }]);
+      fetchCurrentPrice(stock.value).then(price => {
+        setSelectedStocks(prev =>
+          prev.map(s =>
+            s.value === stock.value ? { ...s, currentPrice: price } : s
+          )
+        );
+      });
     }
     setSearch('');
     setShowDropdown(false);
@@ -73,8 +78,13 @@ export default function Home() {
     try {
       const response = await fetch(`${SHEET_URL}?ticker=${ticker}`);
       const data = await response.json();
-      return data?.price || 'N/A';
+      if (typeof data.price === 'string' || typeof data.price === 'number') {
+        return data.price;
+      } else {
+        return 'N/A';
+      }
     } catch (err) {
+      console.error('Fetch price error for', ticker, err);
       return 'N/A';
     }
   };

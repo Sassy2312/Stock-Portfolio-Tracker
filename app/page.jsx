@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { stockOptions } from './stockList';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_KEY = '7ed5bc44f1b04fd2bf2864cd9b46ee65';
-const SAVE_URL = 'https://script.google.com/macros/s/AKfycbyJY2reiFApdYtxDaH6SOhbBimujyzn_Y0A-x_-sr7ecPuK9j45P072ZCFO4PiHjpD-/exec';
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyJY2reiFApdYtxDaH6SOhbBimujyzn_Y0A-x_-sr7ecPuK9j45P072ZCFO4PiHjpD-/exec';
 
 export default function Home() {
   const [search, setSearch] = useState('');
@@ -69,9 +68,7 @@ export default function Home() {
 
   const fetchCurrentPrice = async (ticker) => {
     try {
-      const response = await fetch(
-        `https://script.google.com/macros/s/AKfycbyWF99ycQ93t9y7ErTf0KJqocI-7n9mOW6yT1uB7CLtIhDeUM1zqL2cPVPKfMCUcAzz/exec?ticker=${ticker}`
-      );
+      const response = await fetch(`${SHEET_URL}?ticker=${ticker}`);
       const data = await response.json();
       return data?.price || 'N/A';
     } catch (err) {
@@ -94,7 +91,7 @@ export default function Home() {
     }));
 
     try {
-      await fetch(SAVE_URL, {
+      await fetch(SHEET_URL, {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: { 'Content-Type': 'application/json' },
@@ -105,10 +102,26 @@ export default function Home() {
     }
   };
 
+  const analyzePortfolio = () => {
+    let totalInvested = 0;
+    let totalCurrent = 0;
+
+    selectedStocks.forEach(stock => {
+      const qty = parseFloat(stock.quantity);
+      const buy = parseFloat(stock.price);
+      const curr = parseFloat(stock.currentPrice);
+
+      if (!isNaN(qty) && !isNaN(buy)) totalInvested += qty * buy;
+      if (!isNaN(qty) && !isNaN(curr)) totalCurrent += qty * curr;
+    });
+
+    const change = ((totalCurrent - totalInvested) / totalInvested) * 100;
+    alert(`📊 Total Invested: ₹${totalInvested.toFixed(2)}\n💹 Current Value: ₹${totalCurrent.toFixed(2)}\n📈 % Change: ${change.toFixed(2)}%`);
+  };
+
   return (
     <main className="min-h-screen bg-black text-white p-4">
       <div className="max-w-7xl mx-auto grid grid-cols-[2fr_1.5fr] gap-6">
-        {/* STOCK INPUT PANEL */}
         <div>
           <h1 className="text-3xl font-bold mb-4">📈 Add Stocks</h1>
 
@@ -163,7 +176,6 @@ export default function Home() {
           </AnimatePresence>
         </div>
 
-        {/* PORTFOLIO PANEL */}
         <div>
           <h2 className="text-3xl font-bold mb-2">📋 Portfolio</h2>
 
@@ -234,10 +246,16 @@ export default function Home() {
 
           <div className="flex gap-2 mt-4">
             <button
-              className="w-full py-2 text-center rounded bg-green-600 hover:bg-green-700 text-white font-semibold"
+              className="w-1/2 py-2 text-center rounded bg-green-600 hover:bg-green-700 text-white font-semibold"
               onClick={savePortfolio}
             >
               💾 Save Portfolio
+            </button>
+            <button
+              className="w-1/2 py-2 text-center rounded bg-yellow-600 hover:bg-yellow-700 text-white font-semibold"
+              onClick={analyzePortfolio}
+            >
+              📊 Analyze
             </button>
           </div>
         </div>

@@ -21,7 +21,9 @@ export default function Home() {
 
   const handleInputChange = (e) => {
     setSearch(e.target.value);
-    setShowDropdown(e.target.value.length > 0);
+    setTimeout(() => {
+      setShowDropdown(e.target.value.length > 0);
+    }, 10);
     setHighlightedIndex(-1);
   };
 
@@ -57,6 +59,7 @@ export default function Home() {
   };
 
   const addStock = async (stock) => {
+    console.log("Adding stock: ", stock);
     if (!selectedStocks.find(s => s.value === stock.value)) {
       const price = await fetchCurrentPrice(stock.value);
       setSelectedStocks(prev => [...prev, { ...stock, quantity: '', price: '', currentPrice: price }]);

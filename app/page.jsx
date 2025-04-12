@@ -13,12 +13,32 @@ export default function Home() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [analysis, setAnalysis] = useState(null);
+  const [priceMap, setPriceMap] = useState({});
   const dropdownRef = useRef(null);
   const lastStockRef = useRef(null);
 
   const filteredStocks = stockOptions.filter(stock =>
     stock.label.toLowerCase().includes(search.toLowerCase())
   );
+
+  useEffect(() => {
+    const fetchAllPrices = async () => {
+      try {
+        const res = await fetch(SHEET_URL);
+        const data = await res.json();
+        setPriceMap(data);
+      } catch (err) {
+        console.error('Error fetching price map:', err);
+      }
+    };
+    fetchAllPrices();
+  }, []);
+
+  useEffect(() => {
+    if (lastStockRef.current) {
+      lastStockRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [selectedStocks]);
 
   const handleInputChange = (e) => {
     setSearch(e.target.value);
@@ -30,19 +50,10 @@ export default function Home() {
 
   const handleKeyDown = (e) => {
     if (!showDropdown) return;
-
     if (e.key === 'ArrowDown') {
-      setHighlightedIndex((prev) => {
-        const nextIndex = Math.min(prev + 1, filteredStocks.length - 1);
-        scrollToItem(nextIndex);
-        return nextIndex;
-      });
+      setHighlightedIndex((prev) => Math.min(prev + 1, filteredStocks.length - 1));
     } else if (e.key === 'ArrowUp') {
-      setHighlightedIndex((prev) => {
-        const nextIndex = Math.max(prev - 1, 0);
-        scrollToItem(nextIndex);
-        return nextIndex;
-      });
+      setHighlightedIndex((prev) => Math.max(prev - 1, 0));
     } else if (e.key === 'Enter') {
       if (highlightedIndex >= 0 && filteredStocks[highlightedIndex]) {
         addStock(filteredStocks[highlightedIndex]);
@@ -52,39 +63,16 @@ export default function Home() {
     }
   };
 
-  const scrollToItem = (index) => {
-    if (dropdownRef.current) {
-      const listItem = dropdownRef.current.children[index];
-      if (listItem) listItem.scrollIntoView({ block: 'nearest' });
-    }
-  };
-
   const addStock = async (stock) => {
     if (!selectedStocks.find(s => s.value === stock.value)) {
-      const price = await fetchCurrentPrice(stock.value);
+      const price = priceMap[stock.value] || 'N/A';
       setSelectedStocks(prev => [...prev, {
-        ...stock, quantity: '', price: '', currentPrice: price || 'N/A'
+        ...stock, quantity: '', price: '', currentPrice: price
       }]);
-
-      setTimeout(() => {
-        if (lastStockRef.current) {
-          lastStockRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }
-      }, 100);
     }
     setSearch('');
     setShowDropdown(false);
     setHighlightedIndex(-1);
-  };
-
-  const fetchCurrentPrice = async (ticker) => {
-    try {
-      const response = await fetch(`${SHEET_URL}?ticker=${ticker}`);
-      const data = await response.json();
-      return data.price || 'N/A';
-    } catch (err) {
-      return 'N/A';
-    }
   };
 
   const removeStock = (value) => {
@@ -103,11 +91,11 @@ export default function Home() {
       const profit = current - invested;
       const changePercent = invested ? (profit / invested) * 100 : 0;
       return {
-        portfolioName,
+        portfolioName: portfolioName,
         ticker: stock.value,
-        quantity: stock.quantity,
-        buyPrice: stock.price,
-        currentPrice: stock.currentPrice,
+        quantity: String(stock.quantity),
+        buyPrice: String(stock.price),
+        currentPrice: String(stock.currentPrice),
         invested: invested.toFixed(2),
         profit: profit.toFixed(2),
         changePercent: changePercent.toFixed(2)

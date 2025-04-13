@@ -5,7 +5,6 @@ import { stockOptions } from './stockList';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyJY2reiFApdYtxDaH6SOhbBimujyzn_Y0A-x_-sr7ecPuK9j45P072ZCFO4PiHjpD-/exec';
-const SHEET_VIEW_LINK = 'https://docs.google.com/spreadsheets/d/1uM5nMpQBafCmciLMrS8zvIseYLwQWr1LP5GZd82Jk50/edit#gid=0';
 
 export default function Home() {
   const [search, setSearch] = useState('');
@@ -15,7 +14,7 @@ export default function Home() {
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [analysis, setAnalysis] = useState(null);
   const [priceMap, setPriceMap] = useState({});
-  const [successMessage, setSuccessMessage] = useState('');
+  const [message, setMessage] = useState('');
   const dropdownRef = useRef(null);
   const lastStockRef = useRef(null);
 
@@ -84,24 +83,40 @@ export default function Home() {
   const savePortfolio = async () => {
     if (!portfolioName || selectedStocks.length === 0) return;
 
-    const payload = selectedStocks.map(stock => [
-      portfolioName,
-      stock.label,
-      stock.quantity,
-      stock.price
-    ]);
+    const payload = selectedStocks.map(stock => {
+      const qty = parseFloat(stock.quantity);
+      const buy = parseFloat(stock.price);
+      const curr = parseFloat(stock.currentPrice);
+      const invested = !isNaN(qty) && !isNaN(buy) ? qty * buy : 0;
+      const current = !isNaN(qty) && !isNaN(curr) ? qty * curr : 0;
+      const profit = current - invested;
+      const changePercent = invested ? (profit / invested) * 100 : 0;
+      return {
+        portfolioName: portfolioName,
+        ticker: stock.value,
+        quantity: String(stock.quantity),
+        buyPrice: String(stock.price),
+        currentPrice: String(stock.currentPrice),
+        invested: invested.toFixed(2),
+        profit: profit.toFixed(2),
+        changePercent: changePercent.toFixed(2)
+      };
+    });
 
     try {
-      await fetch(SHEET_URL, {
+      setMessage('💾 Saving portfolio...');
+      const res = await fetch(SHEET_URL, {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: { 'Content-Type': 'application/json' },
       });
-      setSuccessMessage('✅ Portfolio saved successfully!');
-      setTimeout(() => setSuccessMessage(''), 4000);
+      const text = await res.text();
+      setMessage(text.includes('✅') ? '✅ Portfolio saved successfully!' : '❌ Save failed.');
     } catch (err) {
-      alert('❌ Failed to save portfolio');
+      setMessage('❌ Failed to save portfolio.');
     }
+
+    setTimeout(() => setMessage(''), 3000);
   };
 
   const analyzePortfolio = () => {
@@ -127,14 +142,16 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-black text-white p-4">
-      <div className="flex justify-end gap-6 text-sm text-blue-400 mb-4">
-        <a href={SHEET_VIEW_LINK} target="_blank" rel="noopener noreferrer" className="hover:underline">📁 View Saved Portfolios</a>
-        <button onClick={() => alert('🔄 Load Portfolio coming soon...')} className="hover:underline">📤 Load Portfolio</button>
-      </div>
-
       <div className="max-w-7xl mx-auto grid grid-cols-[2fr_1.5fr] gap-6">
         <div>
-          <h1 className="text-3xl font-bold mb-4">📈 Add Stocks</h1>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-3xl font-bold">📈 Add Stocks</h1>
+            <div className="space-x-2">
+              <a href="https://docs.google.com/spreadsheets/d/1uM5nMpQBafCmciLMrS8zvIseYLwQWr1LP5GZd82Jk50/edit#gid=0" target="_blank" className="text-sm text-blue-400 hover:underline">Saved Portfolios</a>
+              <button className="text-sm bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">📂 Load Portfolio</button>
+            </div>
+          </div>
+
           <input
             type="text"
             placeholder="Portfolio name"
@@ -178,12 +195,6 @@ export default function Home() {
             )}
           </AnimatePresence>
 
-          {successMessage && (
-            <div className="mt-3 text-green-400 text-sm bg-gray-800 px-3 py-2 rounded">
-              {successMessage}
-            </div>
-          )}
-
           {analysis && (
             <div className="mt-6 bg-gray-800 p-4 rounded">
               <h2 className="text-2xl font-bold mb-2">📊 Portfolio Analysis</h2>
@@ -192,6 +203,12 @@ export default function Home() {
               <p className={`font-bold ${analysis.totalCurrent >= analysis.totalInvested ? 'text-green-400' : 'text-red-400'}`}>
                 % Change: {(((analysis.totalCurrent - analysis.totalInvested) / analysis.totalInvested) * 100).toFixed(2)}%
               </p>
+            </div>
+          )}
+
+          {message && (
+            <div className="mt-4 text-sm text-center py-2 px-4 rounded bg-gray-700 text-white animate-pulse">
+              {message}
             </div>
           )}
         </div>
